@@ -1,126 +1,79 @@
 import { createSignal, For, Show } from "solid-js";
 import { api, type ScreenRow } from "../lib/api";
-import { Citations } from "../components/Citations";
-import { BreakdownBars, EmptyState, PageHead, RecBadge } from "../components/ui";
+import { verdictFor } from "../lib/awam";
+import { Term, VerdictBadge, AlasanBar, IstilahStrip } from "../components/Awam";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
-import { TextField, TextFieldInput } from "../components/ui/text-field";
-import { Switch, SwitchControl, SwitchLabel, SwitchThumb } from "../components/ui/switch";
+import { useNavigate } from "@solidjs/router";
 
-const SAVED_KEY = "fs-saved-screeners";
-
-function scoreOf(r: ScreenRow): number {
-  const b = r.breakdown as Record<string, unknown>;
-  for (const k of ["composite", "score", "broker_score", "broker"]) {
-    if (typeof b[k] === "number") return b[k] as number;
-  }
-  return r.composite || 0;
-}
+// Preset awam -> body /api/screen.
+const PRESETS: { label: string; desc: string; body: Record<string, unknown> }[] = [
+  { label: "🔥 Yang lagi diborong bandar", desc: "Broker besar net-beli besar", body: { institutional: { broker_score_min: 5 }, limit: 20 } },
+  { label: "🌍 Yang asing lagi beli", desc: "Uang luar negeri masuk", body: { institutional: { foreign_inflow: true }, limit: 20 } },
+  { label: "🕵️ Yang orang dalamnya ikut beli", desc: "Insider buying terdeteksi", body: { institutional: { insider_buying: true }, limit: 20 } },
+  { label: "📦 Semua — urut paling menarik", desc: "Tanpa filter, ranking gabungan", body: { limit: 20 } },
+];
 
 export default function Screener() {
-  const [mode, setMode] = createSignal<"where" | "q">("q");
-  const [q, setQ] = createSignal("");
-  const [brokerMin, setBrokerMin] = createSignal(0);
-  const [foreignOnly, setForeignOnly] = createSignal(false);
-  const [insiderOnly, setInsiderOnly] = createSignal(false);
+  const navigate = useNavigate();
   const [rows, setRows] = createSignal<ScreenRow[]>([]);
   const [ran, setRan] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [err, setErr] = createSignal("");
-  const loadSaved = (): Record<string, string> => {
-    try { return JSON.parse(localStorage.getItem(SAVED_KEY) || "{}"); } catch { return {}; }
-  };
-  const [saved, setSaved] = createSignal<Record<string, string>>(loadSaved());
-  const [sname, setSname] = createSignal("");
-  async function run() {
-    setErr(""); setBusy(true);
+  const [aktif, setAktif] = createSignal("");
+  async function runPreset(p: (typeof PRESETS)[number]) {
+    setErr(""); setBusy(true); setAktif(p.label);
     try {
-      const institutional: Record<string, unknown> = { broker_score_min: brokerMin() };
-      if (foreignOnly()) institutional.foreign_inflow = true;
-      if (insiderOnly()) institutional.insider_buying = true;
-      const body = mode() === "q"
-        ? { q: q() || undefined, institutional, limit: 20 }
-        : { where: q() || undefined, institutional, limit: 20 };
-      const r = await api.screen(body);
+      const r = await api.screen(p.body);
       setRows(r.rows); setRan(true);
     } catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
   }
-  function save() {
-    const all = { ...saved(), [sname().trim() || q().slice(0, 24) || "untitled"]: q() };
-    localStorage.setItem(SAVED_KEY, JSON.stringify(all));
-    setSaved(all);
-  }
+  const hasil = () => rows().map((r) => ({ row: r, ...verdictFor(r) }));
   return (
     <div class="space-y-4">
-      <PageHead title="Institutional Screener" sub="Rank tickers by smart-money signals." />
-      <Card>
-        <CardContent class="space-y-3 pt-6">
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="flex gap-1 rounded-md bg-muted p-1">
-              <Button size="sm" variant={mode() === "q" ? "default" : "ghost"} onClick={() => setMode("q")}>Natural language</Button>
-              <Button size="sm" variant={mode() === "where" ? "default" : "ghost"} onClick={() => setMode("where")}>SQL-like</Button>
-            </div>
-            <TextField class="min-w-52 flex-1">
-              <TextFieldInput placeholder={mode() === "q" ? "e.g. large banks with foreign inflow" : "e.g. market_cap > 10T"} value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
-            </TextField>
-            <Button onClick={run} disabled={busy()}>{busy() ? "Screening…" : "Screen"}</Button>
-          </div>
-          <div class="flex flex-wrap items-center gap-4 text-sm">
-            <label class="flex items-center gap-2 text-muted-foreground">broker ≥
-              <TextField class="w-20"><TextFieldInput type="number" value={brokerMin()} onInput={(e) => setBrokerMin(Number(e.currentTarget.value))} /></TextField>
-            </label>
-            <Switch checked={foreignOnly()} onChange={setForeignOnly}>
-              <SwitchControl><SwitchThumb /></SwitchControl>
-              <SwitchLabel>foreign inflow</SwitchLabel>
-            </Switch>
-            <Switch checked={insiderOnly()} onChange={setInsiderOnly}>
-              <SwitchControl><SwitchThumb /></SwitchControl>
-              <SwitchLabel>insider buying</SwitchLabel>
-            </Switch>
-          </div>
-          <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
-        </CardContent>
-      </Card>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Cari saham menarik 🔍</h1>
+        <p class="text-sm text-muted-foreground">Pilih satu kategori — sistem yang menyaring <Term kata="screener" /> buat kamu.</p>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <For each={PRESETS}>{(p) => (
+          <Card class={aktif() === p.label ? "border-primary" : ""}>
+            <CardHeader class="pb-2"><CardTitle class="text-base">{p.label}</CardTitle><CardDescription>{p.desc}</CardDescription></CardHeader>
+            <CardContent><Button size="sm" onClick={() => runPreset(p)} disabled={busy()}>{busy() && aktif() === p.label ? "Menyaring…" : "Tampilkan"}</Button></CardContent>
+          </Card>
+        )}</For>
+      </div>
+      <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
       <Show when={busy()}><div class="space-y-2"><Skeleton class="h-24 w-full" /><Skeleton class="h-24 w-full" /></div></Show>
       <Show when={ran() && !busy()}>
-        <Show when={rows().length} fallback={<EmptyState icon="🔍" title="No matches" hint="Loosen the filters and try again." />}>
+        <Show when={hasil().length} fallback={<p class="text-sm text-muted-foreground">Tidak ada yang cocok — coba kategori lain.</p>}>
+          <h2 class="text-lg font-semibold">Hasil ({hasil().length})</h2>
           <div class="grid gap-4 md:grid-cols-2">
-            <For each={rows()}>
-              {(r) => (
+            <For each={hasil()}>{(s) => {
+              const b = (s.row.breakdown || {}) as Record<string, unknown>;
+              return (
                 <Card>
                   <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <a class="font-bold text-primary hover:underline" href={`/report/${r.symbol}`}>{r.symbol}</a>
-                    <Badge variant="secondary" class="font-mono">{r.composite.toFixed(1)}</Badge>
+                    <CardTitle class="text-xl font-bold">{s.row.symbol}</CardTitle>
+                    <VerdictBadge verdict={s.verdict} />
                   </CardHeader>
-                  <CardContent class="space-y-2">
-                    <BreakdownBars breakdown={r.breakdown as Record<string, unknown>} />
-                    <Citations items={r.citations} />
-                    <Show when={scoreOf(r) !== 0}><RecBadge rec={scoreOf(r) >= 40 ? "BUY" : scoreOf(r) <= -40 ? "AVOID" : "HOLD"} /></Show>
+                  <CardContent class="space-y-3">
+                    <p class="text-sm">Karena: <strong>{s.alasan}</strong>.</p>
+                    <AlasanBar asing={Number(b.foreign ?? 0)} broker={Number(b.broker_score ?? b.broker ?? 0)} />
+                    <div class="flex gap-2">
+                      <Button size="sm" onClick={() => navigate(`/report/${s.row.symbol}`)}>Kenapa? Jelaskan</Button>
+                    </div>
                   </CardContent>
                 </Card>
-              )}
-            </For>
+              );
+            }}</For>
           </div>
         </Show>
       </Show>
-      <Show when={!ran() && !busy()}>
-        <EmptyState icon="🔍" title="Run a screen" hint="Ranked rows with per-signal bars appear here." />
-      </Show>
-      <Card>
-        <CardHeader><CardTitle>Saved screeners</CardTitle></CardHeader>
-        <CardContent class="space-y-3">
-          <div class="flex gap-2">
-            <TextField class="w-36"><TextFieldInput placeholder="name" value={sname()} onInput={(e) => setSname(e.currentTarget.value)} /></TextField>
-            <Button variant="outline" onClick={save}>Save current</Button>
-          </div>
-          <ul class="space-y-1 text-sm">
-            <For each={Object.entries(saved())}>{([n, query]) => <li><Button variant="ghost" size="sm" onClick={() => { setQ(query); run(); }}>{n}</Button> <span class="text-muted-foreground">{query.slice(0, 60)}</span></li>}</For>
-          </ul>
-        </CardContent>
-      </Card>
+      <div><IstilahStrip /></div>
     </div>
   );
 }

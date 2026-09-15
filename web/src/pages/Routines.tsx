@@ -1,73 +1,70 @@
 import { createResource, createSignal, For, Show } from "solid-js";
 import { api } from "../lib/api";
-import { Citations } from "../components/Citations";
+import { Term, IstilahStrip } from "../components/Awam";
 import { EmptyState, PageHead } from "../components/ui";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { TextField, TextFieldInput } from "../components/ui/text-field";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
-const TYPES = ["morning-briefing", "accumulation-radar", "foreign-reversal", "insider-tape", "earnings-countdown", "dividend-calendar", "weekend-review"];
+// Tipe -> penjelasan manfaat bahasa awam.
+const MANFAAT: Record<string, { judul: string; desc: string }> = {
+  "morning-briefing": { judul: "☀️ Ringkasan pagi", desc: "Dapat kabar pasar tiap pagi jam 07:30 — siapa diborong, ke mana uang asing." },
+  "accumulation-radar": { judul: "🐋 Radar borongan bandar", desc: "Dikabari kalau broker besar mulai borong saham." },
+  "foreign-reversal": { judul: "🌍 Pantau balik arah asing", desc: "Dikabari kalau uang asing berbalik arah (masuk ↔ keluar)." },
+  "insider-tape": { judul: "🕵️ Gerak orang dalam", desc: "Dikabari kalau direksi/pemilik saham ikut beli." },
+  "earnings-countdown": { judul: "📊 Pengingat laporan keuangan", desc: "Dikabari sebelum emiten rilis laporan keuangan." },
+  "dividend-calendar": { judul: "💰 Pengingat dividen", desc: "Dikabari sebelum tanggal bagi dividen (biar tidak kelewat)." },
+  "weekend-review": { judul: "📝 Review mingguan", desc: "Ringkasan seminggu: apa yang terjadi dan pelajaran." },
+};
 
 export default function Routines() {
   const [data, { refetch }] = createResource(() => api.routines());
   const [runs, { refetch: refetchRuns }] = createResource(() => api.runs().then((r) => r.runs.slice(0, 20)));
   const [type_, setType] = createSignal("morning-briefing");
-  const [schedule, setSchedule] = createSignal("");
-  const [channels, setChannels] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [briefing] = createResource(() => api.briefing().catch(() => null));
   async function subscribe() {
     setBusy(true);
-    try {
-      await api.createRoutine({
-        type: type_(),
-        schedule_cron: schedule().trim() || undefined,
-        channels: channels().split(",").map((c) => c.trim()).filter(Boolean),
-      });
-      refetch();
-    } finally { setBusy(false); }
+    try { await api.createRoutine({ type: type_() }); refetch(); }
+    finally { setBusy(false); }
   }
-  async function toggle(id: number, enabled: boolean) {
-    await api.updateRoutine(id, { enabled: !enabled });
-    refetch();
-  }
+  async function toggle(id: number, enabled: boolean) { await api.updateRoutine(id, { enabled: !enabled }); refetch(); }
   async function del(id: number) {
     await fetch(`/api/routines/${id}`, { method: "DELETE", headers: { "X-User-Key": localStorage.getItem("fs-key") || "demo" } });
     refetch();
   }
   return (
     <div class="space-y-4">
-      <PageHead title="Routine Manager" sub="Scheduled deliveries with citations." />
+      <PageHead title="Jadwal otomatis 🗓️" sub="Pilih sekali — sistem yang kerja tiap hari. Ini namanya routine." />
       <Card>
-        <CardHeader><CardTitle>Subscribe</CardTitle></CardHeader>
-        <CardContent class="flex flex-wrap gap-2">
-          <TextField class="w-52">
-            <select class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={type_()} onChange={(e) => setType(e.currentTarget.value)}>
-              <For each={TYPES}>{(t) => <option value={t}>{t}</option>}</For>
-            </select>
-          </TextField>
-          <TextField class="w-60"><TextFieldInput placeholder="schedule cron (blank = default)" value={schedule()} onInput={(e) => setSchedule(e.currentTarget.value)} /></TextField>
-          <TextField class="w-52"><TextFieldInput placeholder="channels, comma-separated" value={channels()} onInput={(e) => setChannels(e.currentTarget.value)} /></TextField>
-          <Button onClick={subscribe} disabled={busy()}>Subscribe</Button>
+        <CardHeader><CardTitle>Mau dilayani apa?</CardTitle><CardDescription>Jadwal standar sudah diatur (mis. ringkasan jam 07:30) — tidak perlu isi cron.</CardDescription></CardHeader>
+        <CardContent class="space-y-3">
+          <div class="grid gap-2 md:grid-cols-2">
+            <For each={Object.entries(MANFAAT)}>{([tipe, m]) => (
+              <Button variant={type_() === tipe ? "default" : "outline"} class="h-auto flex-col items-start p-3" onClick={() => setType(tipe)}>
+                <span class="font-semibold">{m.judul}</span><span class="text-xs font-normal opacity-80">{m.desc}</span>
+              </Button>
+            )}</For>
+          </div>
+          <Button onClick={subscribe} disabled={busy()}>Aktifkan ✓</Button>
         </CardContent>
       </Card>
       <Show when={(data()?.routines || []).length} fallback={
-        <EmptyState icon="🗓️" title="No routines yet" hint="Subscribe above — the morning briefing runs 07:30 WIB daily." />
+        <EmptyState icon="🗓️" title="Belum ada jadwal" hint="Pilih layanan di atas — sekali klik langsung jalan." />
       }>
         <div class="grid gap-4 md:grid-cols-2">
           <For each={data()?.routines || []}>
             {(r) => (
               <Card>
                 <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle class="text-base">{r.type}</CardTitle>
-                  <Badge variant={r.enabled ? "success" : "secondary"}>{r.enabled ? "on" : "off"}</Badge>
+                  <CardTitle class="text-base">{MANFAAT[r.type]?.judul || r.type}</CardTitle>
+                  <Badge variant={r.enabled ? "success" : "secondary"}>{r.enabled ? "jalan" : "mati"}</Badge>
                 </CardHeader>
                 <CardContent class="space-y-2">
-                  <p class="font-mono text-xs text-muted-foreground">{r.schedule_cron}</p>
+                  <p class="text-sm text-muted-foreground">{MANFAAT[r.type]?.desc || ""}</p>
                   <div class="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => toggle(r.id, r.enabled)}>{r.enabled ? "Disable" : "Enable"}</Button>
-                    <Button variant="destructive" size="sm" onClick={() => del(r.id)}>Delete</Button>
+                    <Button variant="outline" size="sm" onClick={() => toggle(r.id, r.enabled)}>{r.enabled ? "Matikan" : "Nyalakan"}</Button>
+                    <Button variant="destructive" size="sm" onClick={() => del(r.id)}>Hapus</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -77,17 +74,18 @@ export default function Routines() {
       </Show>
       <div class="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Latest briefing</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Ringkasan terakhir</CardTitle><CardDescription><Term kata="briefing" /> pagi yang sudah terbit.</CardDescription></CardHeader>
           <CardContent>
-            <Show when={briefing()} fallback={<p class="text-sm text-muted-foreground">No briefing yet — it generates after the first morning-briefing run.</p>}>
-              <pre class="whitespace-pre-wrap text-sm text-muted-foreground">{(briefing() as { payload: string })?.payload?.slice(0, 800)}</pre>
-              <div class="mt-2"><Citations items={(briefing() as { citations: string })?.citations} /></div>
+            <Show when={briefing()} fallback={<p class="text-sm text-muted-foreground">Belum terbit — aktifkan "Ringkasan pagi" di atas.</p>}>
+              <Show when={(briefing() as { narasi?: string })?.narasi} fallback={<pre class="whitespace-pre-wrap text-sm text-muted-foreground">{(briefing() as { payload: string })?.payload?.slice(0, 600)}</pre>}>
+                <p class="whitespace-pre-wrap text-sm leading-relaxed">{(briefing() as { narasi?: string })?.narasi}</p>
+              </Show>
             </Show>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle>Run history</CardTitle>
+            <CardTitle>Riwayat jalan</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => refetchRuns()}>Refresh</Button>
           </CardHeader>
           <CardContent>
@@ -95,6 +93,7 @@ export default function Routines() {
           </CardContent>
         </Card>
       </div>
+      <div><IstilahStrip /></div>
     </div>
   );
 }
