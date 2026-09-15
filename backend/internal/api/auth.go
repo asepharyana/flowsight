@@ -94,7 +94,7 @@ func (s *Server) AuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: "fs_session", Value: tok, Path: "/", HttpOnly: true,
-		Secure: true, SameSite: http.SameSiteLaxMode,
+		Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode,
 		Expires: time.Now().Add(sessionTTL),
 	})
 	http.Redirect(w, r, "/", http.StatusFound)
@@ -123,6 +123,7 @@ func (s *Server) AuthLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: "fs_session", Value: "", Path: "/", HttpOnly: true,
+		Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode,
 		MaxAge: -1,
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -162,8 +163,16 @@ func localCreds(r *http.Request) (string, string, bool) {
 	return strings.ToLower(strings.TrimSpace(req.Username)), req.Password, true
 }
 
+// isHTTPS checks X-Forwarded-Proto (Caddy) or raw TLS.
+func isHTTPS(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		return true
+	}
+	return r.TLS != nil
+}
+
 // mintSession creates a session + sets the fs_session cookie.
-func (s *Server) mintSession(w http.ResponseWriter, user *store.User) bool {
+func (s *Server) mintSession(w http.ResponseWriter, r *http.Request, user *store.User) bool {
 	tok, err := s.DB.CreateSession(user.ID, user.UserKey, sessionTTL)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "session store unavailable")
@@ -171,7 +180,7 @@ func (s *Server) mintSession(w http.ResponseWriter, user *store.User) bool {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: "fs_session", Value: tok, Path: "/", HttpOnly: true,
-		Secure: true, SameSite: http.SameSiteLaxMode,
+		Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode,
 		Expires: time.Now().Add(sessionTTL),
 	})
 	return true
@@ -225,7 +234,7 @@ func (s *Server) AuthSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.seedWatchlistSemua(user.UserKey)
-	if !s.mintSession(w, user) {
+	if !s.mintSession(w, r, user) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"user": s.userJSON(user)})
@@ -245,7 +254,7 @@ func (s *Server) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.seedWatchlistSemua(user.UserKey)
-	if !s.mintSession(w, user) {
+	if !s.mintSession(w, r, user) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": s.userJSON(user)})

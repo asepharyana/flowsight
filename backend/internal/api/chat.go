@@ -28,13 +28,13 @@ func (s *Server) Chat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnprocessableEntity, "message is required")
 		return
 	}
-	// Scope grounding: report citations when scoped.
+	// Scope grounding: report citations when scoped (owner-scoped).
 	var ground, citesRaw string
 	if req.Scope != nil && req.Scope.ReportID > 0 {
 		var cites string
 		var at string
-		err := s.DB.QueryRow(`SELECT payload_json, citations_json, generated_at FROM reports WHERE id=?`,
-			req.Scope.ReportID).Scan(&ground, &cites, &at)
+		err := s.DB.QueryRow(`SELECT payload_json, citations_json, generated_at FROM reports WHERE id=? AND user_key=?`,
+			req.Scope.ReportID, s.userKey(r)).Scan(&ground, &cites, &at)
 		if err != nil {
 			writeErr(w, http.StatusNotFound, "report not found")
 			return

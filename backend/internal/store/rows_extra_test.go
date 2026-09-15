@@ -50,7 +50,7 @@ func TestStoreParity(t *testing.T) {
 	if err != nil || len(fils) != 1 {
 		t.Fatalf("filings = %v, %v", fils, err)
 	}
-	_, _ = db.SaveReport("BBCA", `{"a":1}`, `[]`)
+	_, _ = db.SaveReport("BBCA", `{"a":1}`, `[]`, "tester")
 	reps, err := db.ListReports("BBCA", 10)
 	if err != nil || len(reps) != 1 {
 		t.Fatalf("reports = %v, %v", reps, err)

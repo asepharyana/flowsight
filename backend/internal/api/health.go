@@ -8,9 +8,14 @@ import (
 )
 
 // Health serves GET /api/health: last cycle time + credits spent today +
-// scheduler state + stale flags (docs/API.md).
+// scheduler state + stale flags (docs/API.md). force=1 runs a probe cycle —
+// only for logged-in users (anon force would burn Sectors credits = DoS).
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("force") == "1" {
+		if _, ok := s.sessionUser(r); !ok {
+			writeErr(w, http.StatusUnauthorized, "login dulu untuk memaksa siklus")
+			return
+		}
 		_ = s.Sched.RunCycle(r.Context()) // synchronous probe cycle
 	}
 	lastCycle, schedOK := s.Sched.Status()

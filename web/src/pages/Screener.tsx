@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, Show, onMount } from "solid-js";
 import { api, type ScreenRow } from "../lib/api";
 import { verdictFor } from "../lib/awam";
 import { Term, VerdictBadge, AlasanBar, IstilahStrip } from "../components/Awam";
@@ -33,7 +33,7 @@ function ScreenerInner() {
     finally { setBusy(false); }
   }
   // Default = semua: auto-jalan preset "Semua" sekali saat halaman dibuka.
-  if (!ran() && !busy()) void runPreset(PRESET_SEMUA);
+  onMount(() => { if (!ran()) void runPreset(PRESET_SEMUA); });
   const hasil = () => rows().map((r) => ({ row: r, ...verdictFor(r) }));
   return (
     <div class="space-y-4">
@@ -84,5 +84,5 @@ function ScreenerInner() {
 import { Gate } from "../index";
 
 export default function Screener() {
-  return <Gate fitur="Cari saham">{ScreenerInner()}</Gate>;
+  return <Gate fitur="Cari saham"><ScreenerInner /></Gate>;
 }

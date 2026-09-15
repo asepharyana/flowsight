@@ -66,7 +66,7 @@ func TestBriefing(t *testing.T) {
 	if rec.Code == http.StatusNotFound {
 		// No briefing yet: run the routine via engine path instead.
 		u, _ := s.DB.CheckLocalUser("tester", "password1234")
-	rows, _ := s.DB.ListRoutines(u.UserKey)
+		rows, _ := s.DB.ListRoutines(u.UserKey)
 		if len(rows) == 0 {
 			t.Fatal("seed has no routines")
 		}

@@ -28,14 +28,16 @@ function AlertsInner() {
   const [dchat, setDchat] = createSignal("");
   const [dhook, setDhook] = createSignal("");
   const [derr, setDerr] = createSignal("");
+  const [err, setErr] = createSignal("");
   async function create() {
     setBusy(true);
     try {
       await api.createAlert({ name: tpl().label, rule: tpl().rule, channels: channels().split(",").map((c) => c.trim()).filter(Boolean) });
       refetch();
-    } finally { setBusy(false); }
+    } catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
   }
-  async function del(id: number) { await api.deleteAlert(id); refetch(); }
+  async function del(id: number) { try { await api.deleteAlert(id); refetch(); } catch (e) { setErr(String(e)); } }
   async function addDest() {
     setDerr("");
     try {
@@ -47,11 +49,12 @@ function AlertsInner() {
       refetchDests();
     } catch (e) { setDerr(String(e)); }
   }
-  async function toggleDest(id: number, enabled: boolean) { await api.updateDestination(id, { enabled: !enabled }); refetchDests(); }
-  async function delDest(id: number) { await api.deleteDestination(id); refetchDests(); }
+  async function toggleDest(id: number, enabled: boolean) { try { await api.updateDestination(id, { enabled: !enabled }); refetchDests(); } catch (e) { setDerr(String(e)); } }
+  async function delDest(id: number) { try { await api.deleteDestination(id); refetchDests(); } catch (e) { setDerr(String(e)); } }
   return (
     <div class="space-y-4">
       <PageHead title="Notifikasi otomatis 🔔" sub="Pilih kejadian yang mau kamu dikabari — tanpa perlu paham angka." />
+      <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
       <Card>
         <CardHeader><CardTitle>1. Mau dikabari soal apa?</CardTitle><CardDescription>Pilih satu template <Term kata="alert" />.</CardDescription></CardHeader>
         <CardContent class="space-y-3">

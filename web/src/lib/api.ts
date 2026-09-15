@@ -1,11 +1,19 @@
 // Typed backend client (backend is the only source of truth; web never calls Sectors directly).
 const BASE = "";
 function headers(): HeadersInit {
-  return { "Content-Type": "application/json", "X-User-Key": localStorage.getItem("fs-key") || "demo" };
+  // fs-key is legacy demo identity; cookie auth wins server-side. Keep sending
+  // session cookie implicitly (same-origin default) — no token in localStorage.
+  return { "Content-Type": "application/json" };
+}
+// auth-expired: global signal → Shell refetches /me and redirects to /login.
+export const AUTH_EXPIRED_EVENT = "fs:auth-expired";
+function notifyAuthExpired() {
+  try { window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT)); } catch { /* ignore */ }
 }
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(BASE + path, { ...init, headers: { ...headers(), ...(init?.headers || {}) } });
   if (!r.ok) {
+    if (r.status === 401 && !path.startsWith("/api/auth/")) notifyAuthExpired();
     let msg = r.statusText;
     try { const e = await r.json(); msg = e?.error?.message || msg; } catch { /* keep status */ }
     throw new Error(msg);
@@ -27,12 +35,13 @@ export interface ForeignSeries { dates: string[]; nets: number[]; reversal: bool
 export const api = {
   health: (force = false) => req<Health>(`/api/health${force ? "?force=1" : ""}`),
   flowSummary: () => req<FlowSummary>("/api/flow/summary"),
-  flowBroker: (ticker: string) => req<{ buyers: unknown[]; sellers: unknown[]; citations: Citation[] }>(`/api/flow/broker?ticker=${ticker}`),
-  flowForeign: (ticker: string) => req<ForeignSeries>(`/api/flow/foreign?ticker=${ticker}`),
+  flowBroker: (ticker: string) => req<{ buyers: unknown[]; sellers: unknown[]; citations: Citation[] }>(`/api/flow/broker?ticker=${encodeURIComponent(ticker)}`),
+  flowForeign: (ticker: string) => req<ForeignSeries>(`/api/flow/foreign?ticker=${encodeURIComponent(ticker)}`),
   screen: (body: Record<string, unknown>) => req<{ rows: ScreenRow[]; count: number }>("/api/screen", { method: "POST", body: JSON.stringify(body) }),
   routines: () => req<{ routines: Routine[] }>("/api/routines"),
   createRoutine: (body: Record<string, unknown>) => req<{ id: number }>("/api/routines", { method: "POST", body: JSON.stringify(body) }),
   updateRoutine: (id: number, body: Record<string, unknown>) => req<unknown>(`/api/routines/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteRoutine: (id: number) => req<unknown>(`/api/routines/${id}`, { method: "DELETE" }),
   runs: (routine_id?: number) => req<{ runs: Record<string, unknown>[] }>(`/api/routine-runs${routine_id ? `?routine_id=${routine_id}` : ""}`),
   briefing: () => req<{ date: string; payload: string; citations: string; narasi?: string }>("/api/briefing/today"),
   destinations: () => req<{ destinations: { id: number; kind: string; label: string; enabled: boolean; configured: boolean }[] }>("/api/destinations"),
@@ -43,12 +52,12 @@ export const api = {
   createAlert: (body: Record<string, unknown>) => req<{ id: number }>("/api/alerts", { method: "POST", body: JSON.stringify(body) }),
   deleteAlert: (id: number) => req<unknown>(`/api/alerts/${id}`, { method: "DELETE" }),
   alertEvents: (since = "2000-01-01", ticker = "") => req<{ events: Record<string, unknown>[] }>(`/api/alert-events?since=${since}${ticker ? `&ticker=${ticker}` : ""}`),
-  report: (ticker: string, profile = "moderate") => req<ReportPayload>(`/api/report/${ticker}?profile=${profile}`, { method: "POST" }),
-  reportMd: (ticker: string) => req<string>(`/api/report/${ticker}?format=md`, { method: "POST" }),
-  interrogate: (ticker: string, question: string, report_id?: number) => req<{ answer: string; report_id: number; citations: unknown }>(`/api/report/${ticker}/ask`, { method: "POST", body: JSON.stringify({ question, report_id }) }),
+  report: (ticker: string, profile = "moderate") => req<ReportPayload>(`/api/report/${encodeURIComponent(ticker)}?profile=${profile}`, { method: "POST" }),
+  reportMd: (ticker: string) => req<string>(`/api/report/${encodeURIComponent(ticker)}?format=md`, { method: "POST" }),
+  interrogate: (ticker: string, question: string, report_id?: number) => req<{ answer: string; report_id: number; citations: unknown }>(`/api/report/${encodeURIComponent(ticker)}/ask`, { method: "POST", body: JSON.stringify({ question, report_id }) }),
   watchlist: () => req<{ watchlist: string[] }>("/api/watchlist"),
   addWatch: (ticker: string) => req<unknown>("/api/watchlist", { method: "POST", body: JSON.stringify({ ticker }) }),
-  removeWatch: (ticker: string) => req<unknown>(`/api/watchlist/${ticker}`, { method: "DELETE" }),
+  removeWatch: (ticker: string) => req<unknown>(`/api/watchlist/${encodeURIComponent(ticker)}`, { method: "DELETE" }),
   risk: () => req<{ concentration: { ticker: string; sector: string; weight: number }[]; correlation: Record<string, Record<string, number>>; beta: number; warnings: string[] }>("/api/portfolio/risk"),
   accuracy: () => req<{ agents: { agent: string; calls: number; resolved: number; hits: number; hit_rate: number }[] }>("/api/accuracy"),
   chat: (message: string) => req<{ answer: string }>(`/api/chat`, { method: "POST", body: JSON.stringify({ message }) }),

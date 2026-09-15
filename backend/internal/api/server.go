@@ -45,8 +45,8 @@ func New(cfg config.Config, db *store.DB, cache *store.Cache, s *sectors.Client)
 	sched := scheduler.New(cfg, db, cache, s)
 	srv := &Server{
 		Cfg: cfg, DB: db, Sectors: s, Sched: sched, LLM: llmc,
-		Validate: validator.New(),
-		Hub:      NewHub(),
+		Validate:  validator.New(),
+		Hub:       NewHub(),
 		StartedAt: time.Now(),
 	}
 	srv.Engine = &routines.Engine{DB: db, Notifier: sched.Notifier, UserKey: cfg.DemoUserKey,
@@ -72,15 +72,15 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/signup", s.AuthSignup)
 		r.Post("/auth/login", s.AuthLogin)
 		r.Get("/version", s.Version)
-		r.Get("/stream", s.Stream)
-		// Publik baca: dashboard bisa dibuka tanpa login.
+		// Publik baca: dashboard bisa dibuka tanpa login. Fitur + filter di bawah
+		// wajib login (session cookie, tanpa demo bypass).
 		r.Get("/flow/summary", s.FlowSummary)
 		r.Get("/flow/broker", s.FlowBroker)
 		r.Get("/flow/foreign", s.FlowForeign)
 		r.Get("/briefing/today", s.BriefingToday)
-		// Fitur + filter: wajib login (session cookie, tanpa demo bypass).
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireLogin)
+			r.Get("/stream", s.Stream)
 			r.Post("/screen", s.Screen)
 			r.Get("/routines", s.ListRoutines)
 			r.Post("/routines", s.CreateRoutine)

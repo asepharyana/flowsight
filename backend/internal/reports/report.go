@@ -47,7 +47,7 @@ type RiskFn func(ticker string) (concentration, beta string)
 
 // Build runs A1..A6 + A7 and assembles all 7 sections, returning the
 // persisted report id for citation-scoped chat interrogation.
-func (b *Builder) Build(ctx context.Context, ticker, profile string) (Report, int64, error) {
+func (b *Builder) Build(ctx context.Context, ticker, profile, userKey string) (Report, int64, error) {
 	ticker = strings.ToUpper(ticker)
 	results := agents.RunAll(ctx, b.Deps, ticker)
 	synth := agents.Synthesize(ctx, b.Deps, ticker, agents.RiskProfile(profile), results)
@@ -79,7 +79,7 @@ func (b *Builder) Build(ctx context.Context, ticker, profile string) (Report, in
 	narasi := b.narasiAwam(ctx, ticker, synth, sections)
 	raw, _ := json.Marshal(map[string]any{"ticker": ticker, "sections": sections, "synthesis": synth, "narasi_awam": narasi})
 	citesRaw, _ := json.Marshal(all)
-	id, err := b.DB.SaveReport(ticker, string(raw), string(citesRaw))
+	id, err := b.DB.SaveReport(ticker, string(raw), string(citesRaw), userKey)
 	if err != nil {
 		return Report{}, 0, err
 	}

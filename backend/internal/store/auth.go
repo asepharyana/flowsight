@@ -23,6 +23,7 @@ const (
 	ErrBadPassword authErr = "password minimal 8 karakter"
 	ErrTaken       authErr = "username sudah dipakai"
 )
+
 type User struct {
 	ID        int64
 	GoogleSub string

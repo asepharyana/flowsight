@@ -22,20 +22,24 @@ function RoutinesInner() {
   const [runs, { refetch: refetchRuns }] = createResource(() => api.runs().then((r) => r.runs.slice(0, 20)));
   const [type_, setType] = createSignal("morning-briefing");
   const [busy, setBusy] = createSignal(false);
+  const [err, setErr] = createSignal("");
   const [briefing] = createResource(() => api.briefing().catch(() => null));
   async function subscribe() {
     setBusy(true);
     try { await api.createRoutine({ type: type_() }); refetch(); }
+    catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
   }
-  async function toggle(id: number, enabled: boolean) { await api.updateRoutine(id, { enabled: !enabled }); refetch(); }
+  async function toggle(id: number, enabled: boolean) {
+    try { await api.updateRoutine(id, { enabled: !enabled }); refetch(); } catch (e) { setErr(String(e)); }
+  }
   async function del(id: number) {
-    await fetch(`/api/routines/${id}`, { method: "DELETE", headers: { "X-User-Key": localStorage.getItem("fs-key") || "demo" } });
-    refetch();
+    try { await api.deleteRoutine(id); refetch(); } catch (e) { setErr(String(e)); }
   }
   return (
     <div class="space-y-4">
       <PageHead title="Jadwal otomatis 🗓️" sub="Pilih sekali — sistem yang kerja tiap hari. Ini namanya routine." />
+      <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
       <Card>
         <CardHeader><CardTitle>Mau dilayani apa?</CardTitle><CardDescription>Jadwal standar sudah diatur (mis. ringkasan jam 07:30) — tidak perlu isi cron.</CardDescription></CardHeader>
         <CardContent class="space-y-3">

@@ -19,7 +19,7 @@ func (s *Server) BuildReport(w http.ResponseWriter, r *http.Request) {
 	if profile == "" {
 		profile = "moderate"
 	}
-	rep, id, err := s.Builder.Build(r.Context(), ticker, profile)
+	rep, id, err := s.Builder.Build(r.Context(), ticker, profile, s.userKey(r))
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "report: "+err.Error())
 		return

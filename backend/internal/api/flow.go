@@ -140,7 +140,7 @@ func (s *Server) FlowForeign(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ticker": q.Ticker, "dates": dates, "nets": nets, "reversal": reversal,
 		"citations": []model.Citation{model.Cite("v2/foreign-flow/"+q.Ticker+"/", q.Ticker, dates[len(dates)-1])},
-		"start": startOf(dates), "end": dates[len(dates)-1],
+		"start":     startOf(dates), "end": dates[len(dates)-1],
 	})
 }
 

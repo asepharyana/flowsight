@@ -28,6 +28,7 @@ export function ThemeToggle() {
 }
 
 export function useAuth() {
+  // me() is undefined while loading, null when logged out, AuthUser when in.
   const [me, { refetch }] = createResource(async (): Promise<AuthUser | null> => {
     try { return (await api.me()).user; } catch { return null; }
   });
@@ -59,9 +60,7 @@ export function ButuhLogin(props: { fitur: string }) {
 
 export function AuthButton(props: { me: AuthUser | null | undefined; onLogout: () => void }) {
   return (
-    <Show when={props.me} fallback={
-      <a href="/api/auth/start"><Button>Sign in with Google</Button></a>
-    }>
+    <Show when={props.me} fallback={<a href="/login"><Button>Masuk / Daftar</Button></a>}>
       {(u) => (
         <span class="flex items-center gap-2">
           <Avatar class="size-8">

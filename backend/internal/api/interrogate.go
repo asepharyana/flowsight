@@ -26,7 +26,7 @@ func (s *Server) Interrogate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnprocessableEntity, "question is required")
 		return
 	}
-	payload, citesRaw, at, id, err := s.loadReport(ticker, req.ReportID)
+	payload, citesRaw, at, id, err := s.loadReport(ticker, req.ReportID, s.userKey(r))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "no report for "+ticker+" yet — POST /api/report/"+ticker+" first")
 		return
@@ -49,13 +49,13 @@ func (s *Server) Interrogate(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadReport fetches (payload, citations, generated_at, id) for an explicit
-// report id or the latest report for a ticker.
-func (s *Server) loadReport(ticker string, id int64) (string, string, string, int64, error) {
+// report id (scoped to the caller's userKey) or the latest report for a ticker.
+func (s *Server) loadReport(ticker string, id int64, userKey string) (string, string, string, int64, error) {
 	if id > 0 {
 		var t, p, c, at string
 		var rid int64
 		err := s.DB.QueryRow(`SELECT id, ticker, payload_json, citations_json, generated_at
-			FROM reports WHERE id=?`, id).Scan(&rid, &t, &p, &c, &at)
+			FROM reports WHERE id=? AND user_key=?`, id, userKey).Scan(&rid, &t, &p, &c, &at)
 		if err != nil {
 			return "", "", "", 0, err
 		}
@@ -69,8 +69,8 @@ func (s *Server) loadReport(ticker string, id int64) (string, string, string, in
 		return "", "", "", 0, err
 	}
 	var rid int64
-	_ = s.DB.QueryRow(`SELECT id FROM reports WHERE ticker=? ORDER BY id DESC LIMIT 1`,
-		ticker).Scan(&rid)
+	_ = s.DB.QueryRow(`SELECT id FROM reports WHERE ticker=? AND user_key=? ORDER BY id DESC LIMIT 1`,
+		ticker, userKey).Scan(&rid)
 	return p, c, at, rid, nil
 }
 

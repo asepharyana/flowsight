@@ -1,4 +1,4 @@
-import { createSignal, For, Show, onMount } from "solid-js";
+import { createSignal, createEffect, For, Show, on } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { api, type ReportPayload } from "../lib/api";
 import { Citations } from "../components/Citations";
@@ -19,14 +19,15 @@ function ReportInner() {
   const [busy, setBusy] = createSignal(true);
   const [asking, setAsking] = createSignal(false);
   const [err, setErr] = createSignal("");
-  const authHeaders = () => ({ "X-User-Key": localStorage.getItem("fs-key") || "demo" });
   async function load() {
     setErr(""); setBusy(true);
     try { setRep(await api.report(params.ticker)); }
     catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
   }
-  onMount(load);
+  // Refetch when the ticker param changes (ReportInner stays mounted
+  // because Gate wraps it, but params.ticker is reactive).
+  createEffect(on(() => params.ticker, () => load()));
   async function exportMd() { setMd(await api.reportMd(params.ticker)); }
   async function ask() {
     if (!question().trim()) return;
@@ -39,6 +40,8 @@ function ReportInner() {
   function dl(url: string, name: string) {
     const a = document.createElement("a");
     a.href = url; a.download = name; a.click();
+    // Revoke after a short delay to avoid blob URL leak.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
   return (
     <div class="space-y-4">
@@ -72,15 +75,15 @@ function ReportInner() {
           <CardContent class="flex flex-wrap gap-2">
             <Button variant="outline" onClick={exportMd}>Markdown</Button>
             <Button variant="outline" onClick={async () => {
-              const r = await fetch(`/api/report/${params.ticker}?format=html`, { method: "POST", headers: authHeaders() });
-              dl(URL.createObjectURL(new Blob([await r.text()], { type: "text/html" })), `${params.ticker}-report.html`);
+              const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=html`, { method: "POST", credentials: "same-origin" });
+              if (r.ok) dl(URL.createObjectURL(new Blob([await r.text()], { type: "text/html" })), `${params.ticker}-report.html`);
             }}>HTML</Button>
             <Button variant="outline" onClick={() => {
               dl(URL.createObjectURL(new Blob([JSON.stringify(rep(), null, 1)], { type: "application/json" })), `${params.ticker}-report.json`);
             }}>JSON</Button>
             <Button variant="outline" onClick={async () => {
-              const r = await fetch(`/api/report/${params.ticker}?format=pdf`, { method: "POST", headers: authHeaders() });
-              dl(URL.createObjectURL(await r.blob()), `${params.ticker}-report.pdf`);
+              const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=pdf`, { method: "POST", credentials: "same-origin" });
+              if (r.ok) dl(URL.createObjectURL(await r.blob()), `${params.ticker}-report.pdf`);
             }}>PDF</Button>
           </CardContent>
         </Card>
@@ -107,5 +110,5 @@ function ReportInner() {
 import { Gate } from "../index";
 
 export default function Report() {
-  return <Gate fitur="Report saham">{<ReportInner />}</Gate>;
+  return <Gate fitur="Report saham"><ReportInner /></Gate>;
 }

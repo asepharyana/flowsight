@@ -611,10 +611,10 @@ func (db *DB) FilingsSince(ticker, since string, limit int) ([]map[string]any, e
 
 // Reports reports / briefings.
 
-// SaveReport stores a generated report; returns its id.
-func (db *DB) SaveReport(ticker, payload, cites string) (int64, error) {
-	res, err := db.Exec(`INSERT INTO reports(ticker,generated_at,payload_json,citations_json)
-		VALUES(?,?,?,?)`, ticker, time.Now().UTC().Format(time.RFC3339), payload, cites)
+// SaveReport stores a generated report owned by userKey; returns its id.
+func (db *DB) SaveReport(ticker, payload, cites, userKey string) (int64, error) {
+	res, err := db.Exec(`INSERT INTO reports(ticker,generated_at,payload_json,citations_json,user_key)
+		VALUES(?,?,?,?,?)`, ticker, time.Now().UTC().Format(time.RFC3339), payload, cites, userKey)
 	if err != nil {
 		return 0, err
 	}

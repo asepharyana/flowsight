@@ -1,12 +1,12 @@
 import { render } from "solid-js/web";
 import { Router, Route, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/router";
-import { createResource, createSignal, Show } from "solid-js";
+import { createResource, createSignal, createEffect, Show } from "solid-js";
 import { WatchlistDrawer, ChatSidebar } from "./components/WatchlistChat";
 import { ThemeToggle, useAuth, AuthButton, ButuhLogin } from "./components/auth";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
-import { api } from "./lib/api";
+import { api, AUTH_EXPIRED_EVENT } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 import Routines from "./pages/Routines";
 import Screener from "./pages/Screener";
@@ -134,7 +134,18 @@ function LoginPage() {
 
 function Shell(props: RouteSectionProps) {
   const { me, refetch } = useAuth();
-  const logout = async () => { await api.logout(); refetch(); };
+  const nav = useNavigate();
+  // Any 401 on a gated API while logged in → session expired; go to login.
+  createEffect(() => {
+    const h = () => { if (me()) { refetch(); nav("/login"); } };
+    window.addEventListener(AUTH_EXPIRED_EVENT, h);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, h);
+  });
+  const logout = async () => {
+    try { await api.logout(); } catch { /* server gone — clear locally anyway */ }
+    refetch();
+    nav("/");
+  };
   return (
     <div class="flex min-h-screen bg-background text-foreground">
       <Nav loggedIn={!!me()} />
@@ -166,7 +177,7 @@ function Shell(props: RouteSectionProps) {
 export function Gate(props: { fitur: string; children: import("solid-js").JSX.Element }) {
   const { me } = useAuth();
   return (
-    <Show when={me() !== null} fallback={<p class="text-sm text-muted-foreground">Memeriksa login…</p>}>
+    <Show when={me() !== undefined} fallback={<p class="text-sm text-muted-foreground">Memeriksa login…</p>}>
       <Show when={me()} fallback={<ButuhLogin fitur={props.fitur} />}>
         {props.children}
       </Show>

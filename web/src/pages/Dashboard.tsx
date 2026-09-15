@@ -1,6 +1,7 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, createSignal, createMemo, For, Show } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { api } from "../lib/api";
+import { useAuth } from "../components/auth";
 import { verdictFor, heroSummary, konteksPasar, fmtRp, fmtHarga } from "../lib/awam";
 import { Term, VerdictBadge, AlasanBar, IstilahStrip } from "../components/Awam";
 import { Badge } from "../components/ui/badge";
@@ -13,10 +14,12 @@ Chart.register(...registerables);
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { me } = useAuth();
+  // screen+alertEvents are login-gated; source = me() so login/logout refetches.
   const [flow] = createResource(() => api.flowSummary());
-  const [screen] = createResource(() => api.screen({ limit: 5 }).catch(() => null));
+  const [screen] = createResource(me, (user) => (user ? api.screen({ limit: 5 }).catch(() => null) : null));
   const [briefing] = createResource(() => api.briefing().catch(() => null));
-  const [events] = createResource(() => api.alertEvents("2000-01-01").then((r) => r.events.slice(0, 5)).catch(() => []));
+  const [events] = createResource(me, (user) => (user ? api.alertEvents("2000-01-01").then((r) => r.events.slice(0, 5)).catch(() => []) : []));
   const [chartTiker, setChartTiker] = createSignal("BBCA");
   const [foreign] = createResource(chartTiker, (t) => api.flowForeign(t).catch(() => null));
 
@@ -31,7 +34,7 @@ export default function Dashboard() {
   const chartData = () => ({
     labels: (foreign()?.dates || []) as string[],
     datasets: [{
-      label: `${chartTiker()} — uang asing harian (${fmtRp(0).slice(0, 2)}7700`,
+      label: `${chartTiker()} — uang asing harian (Rp juta)`,
       data: (foreign()?.nets || []) as number[],
       borderColor: "#3b82f6",
       backgroundColor: "rgba(59,130,246,.15)",
