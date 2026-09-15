@@ -44,11 +44,19 @@ func main() {
 		}
 		if !seeded {
 			if ex, err := os.Executable(); err == nil {
-				dir := filepath.Join(filepath.Dir(ex), "fixtures")
-				if st, err := db.SeedFromDir(dir, cfg.DemoUserKey); err == nil {
-					log.Printf("server: seeded %d snapshots from %s", st.Snapshots, dir)
-				} else {
-					log.Printf("server: no seed bundle found (tried tests/fixtures, binary dir): %v", err)
+				binDir := filepath.Dir(ex)
+				for _, dir := range []string{
+					filepath.Join(binDir, "fixtures"),
+					filepath.Join(binDir, "..", "share", "flowsight"),
+				} {
+					if st, err := db.SeedFromDir(dir, cfg.DemoUserKey); err == nil {
+						log.Printf("server: seeded %d snapshots from %s", st.Snapshots, dir)
+						seeded = true
+						break
+					}
+				}
+				if !seeded {
+					log.Printf("server: no seed bundle found (tried tests/fixtures, binary dir)")
 				}
 			}
 		}
