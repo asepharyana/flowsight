@@ -69,12 +69,10 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	// Rest of the universe: still list them as chart-picker options (foreign
 	// data may exist even if not scanned this request).
-	if len(wl) > 60 {
-		extra, _ := s.DB.TickersWithForeign()
-		for _, tk := range wl {
-			if !scanned[tk] && extra[tk] {
-				fkTickers = append(fkTickers, tk)
-			}
+	extra, _ := s.DB.TickersWithForeign()
+	for _, tk := range wl {
+		if !scanned[tk] && extra[tk] {
+			fkTickers = append(fkTickers, tk)
 		}
 	}
 	sort.Slice(accs, func(i, j int) bool { return accs[i].NetSum > accs[j].NetSum })
