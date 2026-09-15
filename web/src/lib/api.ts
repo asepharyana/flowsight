@@ -17,17 +17,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export interface Citation { endpoint: string; snapshot_at: string; ticker?: string; stale?: boolean }
 export interface Health { last_cycle_at: string; credits_today: number; scheduler_ok: boolean; stale_flags: string[] }
-export interface FlowSummary { date: string; foreign_net_total: number; top_accumulation: { ticker: string; net_sum: number; brokers: number }[]; citations: Citation[] }
+export interface FlowSummary { date: string; foreign_net_total: number; top_accumulation: { ticker: string; net_sum: number; brokers: number }[]; closes: { ticker: string; close: number; date: string }[]; citations: Citation[] }
 export interface ScreenRow { symbol: string; name: string; composite: number; breakdown: Record<string, unknown>; citations: Citation[] }
 export interface Routine { id: number; user_key: string; type: string; schedule_cron: string; channels_json?: string; channels?: string[]; enabled: boolean; last_run?: unknown }
 export interface AlertItem { id: number; user_key: string; name: string; rule_json: string; channels_json: string; last_fired: string }
 export interface ReportPayload { ticker: string; generated_at: string; sections: { name: string; body: string; citations: Citation[] }[]; synthesis: { recommendation: string; conviction: number; thesis: string; position_pct: number; conflict: boolean; conflict_note?: string }; agent_scores: unknown[]; citations: Citation[]; narasi_awam?: string }
 export interface AuthUser { id: number; email: string; name: string; avatar_url: string; user_key: string; google_configured: boolean }
+export interface ForeignSeries { dates: string[]; nets: number[]; reversal: boolean; start?: string; end?: string; citations: Citation[] }
 export const api = {
   health: (force = false) => req<Health>(`/api/health${force ? "?force=1" : ""}`),
   flowSummary: () => req<FlowSummary>("/api/flow/summary"),
   flowBroker: (ticker: string) => req<{ buyers: unknown[]; sellers: unknown[]; citations: Citation[] }>(`/api/flow/broker?ticker=${ticker}`),
-  flowForeign: (ticker: string) => req<{ dates: string[]; nets: number[]; reversal: boolean; citations: Citation[] }>(`/api/flow/foreign?ticker=${ticker}`),
+  flowForeign: (ticker: string) => req<ForeignSeries>(`/api/flow/foreign?ticker=${ticker}`),
   screen: (body: Record<string, unknown>) => req<{ rows: ScreenRow[]; count: number }>("/api/screen", { method: "POST", body: JSON.stringify(body) }),
   routines: () => req<{ routines: Routine[] }>("/api/routines"),
   createRoutine: (body: Record<string, unknown>) => req<{ id: number }>("/api/routines", { method: "POST", body: JSON.stringify(body) }),

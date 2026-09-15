@@ -28,6 +28,7 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	var accs []accRow
 	foreignTotal := 0.0
+	var closes []map[string]any
 	var cites []model.Citation
 	for _, tk := range wl {
 		if nets, err := s.DB.NetBuySum5d(tk); err == nil && len(nets) > 0 {
@@ -45,6 +46,9 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 			foreignTotal += nets[len(nets)-1]
 			cites = append(cites, model.Cite("v2/foreign-flow/"+tk+"/", tk, date))
 		}
+		if px, dx, err := s.DB.LatestClose(tk); err == nil {
+			closes = append(closes, map[string]any{"ticker": tk, "close": px, "date": dx})
+		}
 	}
 	sort.Slice(accs, func(i, j int) bool { return accs[i].NetSum > accs[j].NetSum })
 	if len(accs) > 5 {
@@ -52,7 +56,7 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"date": date, "foreign_net_total": foreignTotal,
-		"top_accumulation": accs, "citations": cites,
+		"top_accumulation": accs, "closes": closes, "citations": cites,
 	})
 }
 
@@ -132,5 +136,14 @@ func (s *Server) FlowForeign(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ticker": q.Ticker, "dates": dates, "nets": nets, "reversal": reversal,
 		"citations": []model.Citation{model.Cite("v2/foreign-flow/"+q.Ticker+"/", q.Ticker, dates[len(dates)-1])},
+		"start": startOf(dates), "end": dates[len(dates)-1],
 	})
+}
+
+// startOf returns the first series date ("" when empty).
+func startOf(dates []string) string {
+	if len(dates) == 0 {
+		return ""
+	}
+	return dates[0]
 }

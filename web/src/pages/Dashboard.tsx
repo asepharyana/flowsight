@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, Show } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
-import { api, fmtIDR } from "../lib/api";
-import { verdictFor, heroSummary } from "../lib/awam";
+import { api } from "../lib/api";
+import { verdictFor, heroSummary, konteksPasar, fmtRp, fmtHarga } from "../lib/awam";
 import { Term, VerdictBadge, AlasanBar, IstilahStrip } from "../components/Awam";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -27,10 +27,32 @@ export default function Dashboard() {
     return p ? heroSummary(p) : [];
   };
   const sorotan = () => (screen()?.rows || []).map((r) => ({ row: r, ...verdictFor(r) }));
+  const closeMap = () => Object.fromEntries((flow()?.closes || []).map((c) => [c.ticker, c]));
   const chartData = () => ({
     labels: (foreign()?.dates || []) as string[],
-    datasets: [{ label: `${chartTiker()} — uang asing harian`, data: (foreign()?.nets || []) as number[] }],
+    datasets: [{
+      label: `${chartTiker()} — uang asing harian (${fmtRp(0).slice(0, 2)}7700`,
+      data: (foreign()?.nets || []) as number[],
+      borderColor: "#3b82f6",
+      backgroundColor: "rgba(59,130,246,.15)",
+      fill: true,
+      tension: 0.25,
+    }],
   });
+  const chartOpts = () => ({
+    responsive: true,
+    plugins: {
+      tooltip: { callbacks: { label: (c: { parsed: { y: number } }) => ` ${fmtRp(c.parsed.y)}` } },
+      legend: { display: false },
+    },
+    scales: {
+      y: { ticks: { callback: (v: number | string) => fmtRp(Number(v)), maxTicksLimit: 5 } },
+    },
+  });
+  const periode = () => {
+    const f = foreign();
+    return f?.start && f?.end ? `${f.start} → ${f.end}` : "";
+  };
 
   return (
     <div class="space-y-6">
@@ -48,6 +70,9 @@ export default function Dashboard() {
               </ul>
             </Show>
           </Show>
+          <Show when={sorotan().length}>
+            <p class="mt-3 border-t pt-3 text-sm text-muted-foreground">🧭 {konteksPasar(sorotan(), flow()?.foreign_net_total)}</p>
+          </Show>
           <div class="mt-3"><IstilahStrip /></div>
         </CardContent>
       </Card>
@@ -55,22 +80,29 @@ export default function Dashboard() {
       {/* SOROTAN SAHAM */}
       <div>
         <h2 class="mb-3 text-lg font-semibold">Saham sorotan hari ini</h2>
-        <Show when={!screen.loading} fallback={<div class="grid gap-4 md:grid-cols-2"><Skeleton class="h-40" /><Skeleton class="h-40" /></div>}>
+        <Show when={!screen.loading} fallback={<div class="grid gap-4 md:grid-cols-2"><Skeleton class="h-44" /><Skeleton class="h-44" /></div>}>
           <Show when={sorotan().length} fallback={<p class="text-sm text-muted-foreground">Belum ada data sorotan.</p>}>
             <div class="grid gap-4 md:grid-cols-2">
               <For each={sorotan()}>{(s) => {
                 const b = (s.row.breakdown || {}) as Record<string, unknown>;
+                const cx = closeMap()[s.row.symbol];
                 return (
-                  <Card>
+                  <Card class={s.verdict === "Dilirik" ? "border-l-4 border-l-emerald-500" : s.verdict === "Dilepas" ? "border-l-4 border-l-red-500" : ""}>
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle class="text-xl font-bold">{s.row.symbol}</CardTitle>
+                      <CardTitle class="text-xl font-bold">
+                        {s.row.symbol}
+                        <Show when={cx?.close}><span class="ml-2 font-mono text-sm font-normal text-muted-foreground">{fmtHarga(cx.close)}</span></Show>
+                      </CardTitle>
                       <VerdictBadge verdict={s.verdict} />
                     </CardHeader>
                     <CardContent class="space-y-3">
-                      <p class="text-sm">Karena: <strong>{s.alasan}</strong>.</p>
+                      <p class="text-sm">
+                        Harga terakhir <strong class="font-mono">{cx?.close ? fmtHarga(cx.close) : "—"}</strong>
+                        {" "}— {s.alasan}.
+                      </p>
                       <AlasanBar asing={Number(b.foreign ?? 0)} broker={Number(b.broker_score ?? b.broker ?? 0)} />
                       <div class="flex gap-2">
-                        <Button size="sm" onClick={() => navigate(`/report?t=${s.row.symbol}`)}>Kenapa? Jelaskan</Button>
+                        <Button size="sm" onClick={() => navigate(`/report/${s.row.symbol}`)}>Kenapa? Jelaskan</Button>
                         <Button size="sm" variant="outline"><A href={`/screener`}>Bandingkan</A></Button>
                       </div>
                     </CardContent>
@@ -95,7 +127,8 @@ export default function Dashboard() {
             }</For>
           </div>
           <Show when={(foreign()?.dates || []).length} fallback={<p class="text-sm text-muted-foreground">Belum ada data grafik.</p>}>
-            <Line data={chartData()} options={{ responsive: true }} />
+            <Line data={chartData()} options={chartOpts() as never} />
+            <p class="mt-1 text-xs text-muted-foreground">Periode {periode()} · sumber: Sectors API (lihat sitasi report).</p>
             <Show when={foreign()?.reversal}><p class="mt-2 text-sm font-medium">⚠️ Arahnya baru berbalik — perhatikan beberapa hari ke depan.</p></Show>
           </Show>
         </CardContent>
@@ -115,10 +148,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Yang paling diborong</CardTitle><CardDescription>Total <Term kata="net" /> beli broker hari ini: <strong>{flow() ? fmtIDR(flow()!.foreign_net_total) : "…"}</strong></CardDescription></CardHeader>
+          <CardHeader><CardTitle>Yang paling diborong</CardTitle><CardDescription>Total <Term kata="net" /> beli broker 5 hari: <strong>{flow() ? fmtRp(flow()!.foreign_net_total) : "…"}</strong></CardDescription></CardHeader>
           <CardContent>
             <ul class="space-y-1 text-sm">
-              <For each={flow()?.top_accumulation || []}>{(t) => <li class="flex justify-between"><A class="font-medium underline-offset-2 hover:underline" href={`/report?t=${t.ticker}`}>{t.ticker}</A><span class="font-mono">{fmtIDR(t.net_sum)} · {t.brokers} broker</span></li>}</For>
+              <For each={flow()?.top_accumulation || []}>{(t) => <li class="flex justify-between"><A class="font-medium underline-offset-2 hover:underline" href={`/report/${t.ticker}`}>{t.ticker}</A><span class="font-mono">{fmtRp(t.net_sum)} · {t.brokers} broker</span></li>}</For>
             </ul>
             <div class="mt-2"><Badge variant="outline">Angka detail untuk yang penasaran — keputusan ada di kartu sorotan ☝️</Badge></div>
           </CardContent>
