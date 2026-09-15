@@ -27,6 +27,8 @@ type Config struct {
 	DiscordWebhookURL string
 	CreditCapPerCycle int
 	Watchlist         []string
+	// StaticDir serves the prebuilt web dist (WEB_DIST_DIR). Empty = API only.
+	StaticDir string
 }
 
 // HasSectorsKey reports whether live Sectors API calls are possible.
@@ -83,5 +85,6 @@ func Load() Config {
 		DiscordWebhookURL: os.Getenv("DISCORD_WEBHOOK_URL"),
 		CreditCapPerCycle: getenvInt("CREDIT_CAP_PER_CYCLE", 120),
 		Watchlist:         tickers,
+		StaticDir:         os.Getenv("WEB_DIST_DIR"),
 	}
 }

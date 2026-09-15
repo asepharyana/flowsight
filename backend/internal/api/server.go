@@ -90,6 +90,9 @@ func (s *Server) Router() http.Handler {
 		r.Get("/accuracy", s.Accuracy)
 		r.Post("/chat", s.Chat)
 	})
+	if s.Cfg.StaticDir != "" {
+		r.NotFound(s.spaHandler())
+	}
 	return r
 }
 

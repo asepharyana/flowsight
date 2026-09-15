@@ -42,3 +42,8 @@ data/
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# planning-with-files (local session state)
+task_plan.md
+findings.md
+progress.md

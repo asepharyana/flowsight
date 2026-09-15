@@ -1,0 +1,25 @@
+[Unit]
+Description=FlowSight — Sectors hackathon screener (Go API + SolidJS web, single service)
+After=network-online.target nix-daemon.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/flowsight
+# Secrets dari Bitwarden Secrets Manager (project flowsight):
+#   flowsight_sectors_api_key -> SECTORS_API_KEY
+#   flowsight_llm_api_key     -> LLM_API_KEY
+#   flowsight_llm_base_url    -> LLM_BASE_URL
+#   flowsight_llm_model_triage/synth -> LLM_MODEL_TRIAGE/SYNTH
+# WEB_DIST_DIR menunjuk ke dist frontend di store path aktif (dibuat saat deploy).
+Environment=PORT=4022
+Environment=DB_PATH=/var/lib/flowsight/data/flowsight.db
+Environment=WEB_DIST_DIR=/nix/var/nix/profiles/flowsight/share/flowsight-web/dist
+ExecStart=/usr/local/bin/bws-exec flowsight --project ca75de0f-058b-4a56-9073-b4c600572817 -- /nix/var/nix/profiles/flowsight/bin/flowsight
+Restart=always
+RestartSec=3
+User=code
+Group=code
+
+[Install]
+WantedBy=multi-user.target

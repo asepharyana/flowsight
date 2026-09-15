@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VPS_HOST: ${{ secrets.SSH_DEPLOY_HOST }}
+  VPS_USER: ${{ secrets.SSH_DEPLOY_USER }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: go test + web typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: Go vet + test
+        working-directory: backend
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Set up Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable corepack pnpm
+        run: corepack enable
+
+      - name: Web typecheck + build
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+  build-and-deploy:
+    name: build + deploy (Nix) — flowsight
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          determinate: false
+          extra-conf: |
+            sandbox = false
+            accept-flake-config = true
+            extra-substituters = https://attic.asepharyana.my.id/asepharyana https://attic.asepharyana.my.id/gmw
+            extra-trusted-public-keys = asepharyana:zBpY6vNI1nDJ4mU6W4q880BB0JB1qb3gRKkO/tGSMiQ= gmw:Fq2Anzuhkb+T/hftWnPcveHSi21/RzIgIOeG8pCJa88=
+
+      - name: Cache Nix
+        uses: DeterminateSystems/magic-nix-cache-action@v14
+        with:
+          use-flakehub: false
+
+      - name: Build flowsight
+        id: build
+        run: |
+          nix build .#flowsight --impure --option sandbox false --print-build-logs
+          STORE_PATH=$(readlink result)
+          echo "store-path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+          echo "Build OK flowsight: $STORE_PATH"
+
+      - name: Setup SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          sed -i 's/\r$//' ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null 2>&1 || { echo "SSH key invalid"; exit 1; }
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Push to Attic cache
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+          STORE_PATH: ${{ steps.build.outputs.store-path }}
+        run: |
+          ATTIC_DIR="/nix/store/fygyy3yk4rqdknxkiwkqambpnhyax0k4-attic-0.1.0"
+          mkdir -p "$HOME/.config/attic"
+          cat > "$HOME/.config/attic/config.toml" <<EOF
+          default-server = "pub"
+          [servers.pub]
+          endpoint = "https://attic.asepharyana.my.id"
+          token = "$ATTIC_TOKEN"
+          EOF
+
+          ATTIC_BIN=""
+          if nix-store --realise "$ATTIC_DIR" 2>/dev/null; then
+            ATTIC_BIN="$ATTIC_DIR/bin/attic"
+          fi
+
+          push_ok=""
+          if [ -n "$ATTIC_BIN" ] && [ -x "$ATTIC_BIN" ]; then
+            for attempt in 1 2 3; do
+              if "$ATTIC_BIN" push pub:asepharyana "$STORE_PATH" --jobs 4 --ignore-upstream-cache-filter; then
+                echo "Pushed $STORE_PATH to Attic"
+                push_ok=1
+                break
+              fi
+              echo "Attic push attempt $attempt/3 failed; retrying in 10s..."
+              sleep 10
+            done
+          fi
+
+          if [ -z "$push_ok" ]; then
+            echo "Attic push failed; copying store path directly to VPS"
+            nix copy --to "ssh://$VPS_USER@${VPS_HOST}" "$STORE_PATH"
+          fi
+
+      - name: Deploy on VPS
+        env:
+          STORE_PATH: ${{ steps.build.outputs.store-path }}
+        run: |
+          REALISE_RESULT=$(ssh "$VPS_USER@$VPS_HOST" \
+            "sudo /nix/var/nix/profiles/default/bin/nix-store --realise '$STORE_PATH' 2>&1 || true")
+          echo "$REALISE_RESULT"
+
+          ssh "$VPS_USER@$VPS_HOST" \
+            "sudo /nix/var/nix/profiles/default/bin/nix-env \
+              --profile /nix/var/nix/profiles/flowsight \
+              --set '$STORE_PATH' && \
+            (cd /home/code/flowsight && git fetch origin main && git reset --hard origin/main || true) && \
+            sudo mkdir -p /var/lib/flowsight/data && sudo chown -R code:code /var/lib/flowsight && \
+            (sudo cp /home/code/flowsight/deploy/flowsight.service /etc/systemd/system/flowsight.service && sudo systemctl daemon-reload || true) && \
+            sudo systemctl enable --now flowsight && \
+            sudo systemctl restart flowsight && \
+            sleep 3 && \
+            sudo systemctl status flowsight --no-pager --no-legend | head -5"
+
+      - name: Verify service
+        run: |
+          ssh "$VPS_USER@$VPS_HOST" \
+            "curl -s -o /dev/null -w 'local:%{http_code}\n' http://localhost:4022/api/health && \
+             curl -sk -o /dev/null -w 'public:%{http_code}\n' https://sectors-hackaton.asepharyana.my.id/api/health"
