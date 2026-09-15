@@ -271,3 +271,51 @@ func TestDestinations(t *testing.T) {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}
 }
+
+// Auth endpoints 404 when Google is unconfigured; /me 401.
+func TestAuthUnconfigured(t *testing.T) {
+	s := testServer(t)
+	rec := do(s, "GET", "/api/auth/start", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("start code = %d", rec.Code)
+	}
+	rec = do(s, "GET", "/api/auth/me", nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("me code = %d", rec.Code)
+	}
+	rec = do(s, "POST", "/api/auth/logout", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("logout code = %d", rec.Code)
+	}
+}
+
+// Session round-trip: upsert user -> create session -> resolve -> revoke.
+func TestSessionRoundTrip(t *testing.T) {
+	s := testServer(t)
+	u, err := s.DB.UpsertUser("sub-123", "a@x.id", "A", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.UserKey != "u:sub-123" {
+		t.Fatalf("userkey = %s", u.UserKey)
+	}
+	tok, err := s.DB.CreateSession(u.ID, u.UserKey, 3600000000000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.DB.SessionUser(tok)
+	if !ok || got.Email != "a@x.id" {
+		t.Fatalf("resolve ok=%v got=%v", ok, got)
+	}
+	req := httptest.NewRequest("GET", "/api/watchlist", nil)
+	req.AddCookie(&http.Cookie{Name: "fs_session", Value: tok})
+	if key := s.userKey(req); key != "u:sub-123" {
+		t.Fatalf("userKey = %s", key)
+	}
+	if err := s.DB.DeleteSession(tok); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.DB.SessionUser(tok); ok {
+		t.Fatal("revoked session still valid")
+	}
+}

@@ -29,6 +29,17 @@ type Config struct {
 	Watchlist         []string
 	// StaticDir serves the prebuilt web dist (WEB_DIST_DIR). Empty = API only.
 	StaticDir string
+	// Google OAuth (login). Empty client ID = auth endpoints 404.
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+}
+
+// HasGoogle reports whether Google OAuth login is configured.
+func (c Config) HasGoogle() bool {
+	return strings.TrimSpace(c.GoogleClientID) != "" &&
+		strings.TrimSpace(c.GoogleClientSecret) != "" &&
+		strings.TrimSpace(c.GoogleRedirectURL) != ""
 }
 
 // HasSectorsKey reports whether live Sectors API calls are possible.
@@ -86,5 +97,8 @@ func Load() Config {
 		CreditCapPerCycle: getenvInt("CREDIT_CAP_PER_CYCLE", 120),
 		Watchlist:         tickers,
 		StaticDir:         os.Getenv("WEB_DIST_DIR"),
+		GoogleClientID:    os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 	}
 }

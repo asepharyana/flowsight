@@ -62,6 +62,10 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.Logger, middleware.Recoverer, middleware.Heartbeat("/ping"))
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", s.Health)
+		r.Get("/auth/start", s.AuthStart)
+		r.Get("/auth/callback", s.AuthCallback)
+		r.Get("/auth/me", s.AuthMe)
+		r.Post("/auth/logout", s.AuthLogout)
 		r.Get("/stream", s.Stream)
 		r.Get("/flow/summary", s.FlowSummary)
 		r.Get("/flow/broker", s.FlowBroker)
@@ -96,8 +100,12 @@ func (s *Server) Router() http.Handler {
 	return r
 }
 
-// userKey resolves the demo auth header (single demo key for hackathon).
+// userKey resolves the request owner: session cookie first (Google login ->
+// `u:<sub>`), then the demo header, then the shared demo key.
 func (s *Server) userKey(r *http.Request) string {
+	if u, ok := s.sessionUser(r); ok {
+		return u.UserKey
+	}
 	if k := strings.TrimSpace(r.Header.Get("X-User-Key")); k != "" {
 		return k
 	}
