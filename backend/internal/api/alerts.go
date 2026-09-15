@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"flowsight/internal/store"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -14,6 +16,9 @@ func (s *Server) ListAlerts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "db: "+err.Error())
 		return
+	}
+	if rows == nil {
+		rows = []store.Alert{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"alerts": rows})
 }
@@ -71,6 +76,9 @@ func (s *Server) AlertEvents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "db: "+err.Error())
 		return
+	}
+	if evts == nil {
+		evts = []map[string]any{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": evts})
 }

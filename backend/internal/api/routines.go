@@ -101,6 +101,9 @@ func (s *Server) RunHistory(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "db: "+err.Error())
 		return
 	}
+	if hist == nil {
+		hist = []map[string]any{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"runs": hist})
 }
 
