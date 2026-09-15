@@ -190,11 +190,15 @@ func (s *Scheduler) watchlist() []string {
 	return s.watchlistFor(s.Cfg.DemoUserKey)
 }
 
-// watchlistFor resolves one owner's watchlist (demo seed fallback kept).
+// watchlistFor resolves one owner's watchlist: personal first, then the
+// "semua" default (every ticker with stored data), then the config list.
 func (s *Scheduler) watchlistFor(owner string) []string {
 	wl, err := s.DB.Watchlist(owner)
 	if err == nil && len(wl) > 0 {
 		return wl
+	}
+	if all, err := s.DB.AllTickers(); err == nil && len(all) > 0 {
+		return all
 	}
 	if owner == s.Cfg.DemoUserKey && len(s.Cfg.Watchlist) > 0 {
 		return s.Cfg.Watchlist

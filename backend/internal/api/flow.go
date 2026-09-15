@@ -19,7 +19,11 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	wl, _ := s.DB.Watchlist(s.userKey(r))
 	if len(wl) == 0 {
-		wl = s.Cfg.Watchlist
+		if all, err := s.DB.AllTickers(); err == nil && len(all) > 0 {
+			wl = all
+		} else {
+			wl = s.Cfg.Watchlist
+		}
 	}
 	type accRow struct {
 		Ticker  string  `json:"ticker"`

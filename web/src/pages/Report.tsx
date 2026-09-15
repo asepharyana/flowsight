@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Skeleton } from "../components/ui/skeleton";
 import { TextField, TextFieldInput } from "../components/ui/text-field";
 
-export default function Report() {
+function ReportInner() {
   const params = useParams();
   const [rep, setRep] = createSignal<ReportPayload | null>(null);
   const [md, setMd] = createSignal("");
@@ -102,4 +102,10 @@ export default function Report() {
       <Show when={md()}><Card><CardContent class="pt-6"><pre class="whitespace-pre-wrap text-sm text-muted-foreground">{md().slice(0, 2000)}</pre></CardContent></Card></Show>
     </div>
   );
+}
+
+import { Gate } from "../index";
+
+export default function Report() {
+  return <Gate fitur="Report saham">{<ReportInner />}</Gate>;
 }

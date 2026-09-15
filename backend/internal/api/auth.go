@@ -77,9 +77,13 @@ func (s *Server) AuthCallback(w http.ResponseWriter, r *http.Request) {
 		fail("user store unavailable")
 		return
 	}
-	// Ensure the login user owns the default watchlist on first login.
+	// Ensure the login user owns the "semua" default watchlist on first login.
 	if wl, _ := s.DB.Watchlist(user.UserKey); len(wl) == 0 {
-		for _, t := range s.Cfg.Watchlist {
+		seeds, _ := s.DB.AllTickers()
+		if len(seeds) == 0 {
+			seeds = s.Cfg.Watchlist
+		}
+		for _, t := range seeds {
 			_ = s.DB.AddWatch(user.UserKey, t)
 		}
 	}
@@ -131,6 +135,120 @@ func (s *Server) sessionUser(r *http.Request) (*store.User, bool) {
 		return nil, false
 	}
 	return s.DB.SessionUser(c.Value)
+}
+
+// requireLogin is chi middleware: 401 unless a valid session cookie is
+// present. No X-User-Key/demo fallback — fitur dan filter milik user yg
+// login. Dashboard (flow/*, briefing) tetap publik di luar grup ini.
+func (s *Server) requireLogin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := s.sessionUser(r); !ok {
+			writeErr(w, http.StatusUnauthorized, "login dulu untuk pakai fitur ini")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// localCreds decodes {username, password} with shared validation.
+func localCreds(r *http.Request) (string, string, bool) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return "", "", false
+	}
+	return strings.ToLower(strings.TrimSpace(req.Username)), req.Password, true
+}
+
+// mintSession creates a session + sets the fs_session cookie.
+func (s *Server) mintSession(w http.ResponseWriter, user *store.User) bool {
+	tok, err := s.DB.CreateSession(user.ID, user.UserKey, sessionTTL)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "session store unavailable")
+		return false
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: "fs_session", Value: tok, Path: "/", HttpOnly: true,
+		Secure: true, SameSite: http.SameSiteLaxMode,
+		Expires: time.Now().Add(sessionTTL),
+	})
+	return true
+}
+
+// userJSON renders the /api/auth/me shape for one user.
+func (s *Server) userJSON(u *store.User) map[string]any {
+	return map[string]any{
+		"id": u.ID, "email": u.Email, "name": u.Name,
+		"avatar_url": u.AvatarURL, "user_key": u.UserKey,
+		"google_configured": s.Cfg.HasGoogle(),
+	}
+}
+
+// seedWatchlistSemua gives a fresh user the "semua" default: every ticker
+// with stored data (fallback: config watchlist, last: BBCA).
+func (s *Server) seedWatchlistSemua(userKey string) {
+	if wl, _ := s.DB.Watchlist(userKey); len(wl) > 0 {
+		return
+	}
+	seeds, _ := s.DB.AllTickers()
+	if len(seeds) == 0 {
+		seeds = s.Cfg.Watchlist
+	}
+	if len(seeds) == 0 {
+		seeds = []string{"BBCA"}
+	}
+	for _, t := range seeds {
+		_ = s.DB.AddWatch(userKey, t)
+	}
+}
+
+// AuthSignup serves POST /api/auth/signup {username, password}: registers a
+// local account, seeds the "semua" watchlist, logs in immediately.
+func (s *Server) AuthSignup(w http.ResponseWriter, r *http.Request) {
+	username, password, ok := localCreds(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	user, err := s.DB.CreateLocalUser(username, password)
+	if err != nil {
+		switch err {
+		case store.ErrTaken:
+			writeErr(w, http.StatusConflict, err.Error())
+		case store.ErrBadUsername, store.ErrBadPassword:
+			writeErr(w, http.StatusUnprocessableEntity, err.Error())
+		default:
+			writeErr(w, http.StatusBadGateway, "db: "+err.Error())
+		}
+		return
+	}
+	s.seedWatchlistSemua(user.UserKey)
+	if !s.mintSession(w, user) {
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"user": s.userJSON(user)})
+}
+
+// AuthLogin serves POST /api/auth/login {username, password}: verifies the
+// local account and mints a session.
+func (s *Server) AuthLogin(w http.ResponseWriter, r *http.Request) {
+	username, password, ok := localCreds(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	user, err := s.DB.CheckLocalUser(username, password)
+	if err != nil {
+		writeErr(w, http.StatusUnauthorized, "username atau password salah")
+		return
+	}
+	s.seedWatchlistSemua(user.UserKey)
+	if !s.mintSession(w, user) {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": s.userJSON(user)})
 }
 
 // googleTokenResp is the subset of oauth2.googleapis.com/token we need.

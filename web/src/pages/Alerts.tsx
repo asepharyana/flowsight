@@ -15,7 +15,7 @@ const TEMPLATES: { label: string; desc: string; rule: Record<string, unknown> }[
   { label: "📢 Semua gerakan mencolok", desc: "Skor gabungan di atas ambang", rule: { all: [{ field: "score", op: ">=", value: 60 }] } },
 ];
 
-export default function Alerts() {
+function AlertsInner() {
   const [alerts, { refetch }] = createResource(() => api.alerts());
   const [events, { refetch: refetchEv }] = createResource(() => api.alertEvents("2000-01-01").then((r) => r.events.slice(0, 30)));
   const [dests, { refetch: refetchDests }] = createResource(() => api.destinations());
@@ -126,4 +126,10 @@ export default function Alerts() {
       <div><IstilahStrip /></div>
     </div>
   );
+}
+
+import { Gate } from "../index";
+
+export default function Alerts() {
+  return <Gate fitur="Notifikasi">{AlertsInner()}</Gate>;
 }

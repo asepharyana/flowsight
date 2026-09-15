@@ -54,6 +54,9 @@ export const api = {
   chat: (message: string) => req<{ answer: string }>(`/api/chat`, { method: "POST", body: JSON.stringify({ message }) }),
   me: () => req<{ user: AuthUser }>(`/api/auth/me`),
   logout: () => req<{ ok: boolean }>(`/api/auth/logout`, { method: "POST" }),
+  signup: (username: string, password: string) => req<{ user: AuthUser }>(`/api/auth/signup`, { method: "POST", body: JSON.stringify({ username, password }) }),
+  login: (username: string, password: string) => req<{ user: AuthUser }>(`/api/auth/login`, { method: "POST", body: JSON.stringify({ username, password }) }),
+  version: () => req<{ commit: string; started_at: string; google_configured: boolean }>(`/api/version`),
 };
 // SSE hook helper: subscribe to channels agents|alerts|activity.
 export function subscribeSSE(onEvent: (channel: string, data: string) => void): () => void {

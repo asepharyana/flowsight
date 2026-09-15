@@ -65,7 +65,8 @@ func TestBriefing(t *testing.T) {
 	rec := do(s, "GET", "/api/briefing/today", nil)
 	if rec.Code == http.StatusNotFound {
 		// No briefing yet: run the routine via engine path instead.
-		rows, _ := s.DB.ListRoutines("demo")
+		u, _ := s.DB.CheckLocalUser("tester", "password1234")
+	rows, _ := s.DB.ListRoutines(u.UserKey)
 		if len(rows) == 0 {
 			t.Fatal("seed has no routines")
 		}
@@ -82,7 +83,7 @@ func TestBriefing(t *testing.T) {
 // Screener returns a ranked list with per-row breakdown.
 func TestScreen(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "POST", "/api/screen", map[string]any{"limit": 5})
+	rec := doAuth(t, s, "POST", "/api/screen", map[string]any{"limit": 5})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d", rec.Code)
 	}
@@ -101,7 +102,7 @@ func TestScreen(t *testing.T) {
 // Report: all 7 sections populated with citations.
 func TestReport(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "POST", "/api/report/BBCA?profile=moderate", nil)
+	rec := doAuth(t, s, "POST", "/api/report/BBCA?profile=moderate", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d, body %s", rec.Code, rec.Body.String()[:300])
 	}
@@ -122,20 +123,21 @@ func TestReport(t *testing.T) {
 // Subscribe -> run -> history row appears.
 func TestRoutineSubscribeRunHistory(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "POST", "/api/routines", map[string]any{"type": "foreign-reversal"})
+	rec := doAuth(t, s, "POST", "/api/routines", map[string]any{"type": "foreign-reversal"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("code = %d", rec.Code)
 	}
 	var created map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &created)
-	rows, _ := s.DB.ListRoutines("demo")
+	u, _ := s.DB.CheckLocalUser("tester", "password1234")
+	rows, _ := s.DB.ListRoutines(u.UserKey)
 	if len(rows) == 0 {
 		t.Fatal("no routines")
 	}
 	if _, err := s.Engine.Run(httptest.NewRequest("GET", "/", nil).Context(), rows[0]); err != nil {
 		t.Fatal(err)
 	}
-	rec = do(s, "GET", "/api/routine-runs?limit=5", nil)
+	rec = doAuth(t, s, "GET", "/api/routine-runs?limit=5", nil)
 	var out struct {
 		Runs []map[string]any `json:"runs"`
 	}
@@ -149,11 +151,11 @@ func TestRoutineSubscribeRunHistory(t *testing.T) {
 // from the persisted report, unknown report 404s.
 func TestInterrogate(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "POST", "/api/report/BBCA?profile=moderate", nil)
+	rec := doAuth(t, s, "POST", "/api/report/BBCA?profile=moderate", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d", rec.Code)
 	}
-	rec = do(s, "POST", "/api/report/BBCA/ask", map[string]any{"question": "kenapa conviction segitu?"})
+	rec = doAuth(t, s, "POST", "/api/report/BBCA/ask", map[string]any{"question": "kenapa conviction segitu?"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d, body %s", rec.Code, rec.Body.String()[:200])
 	}
@@ -164,7 +166,7 @@ func TestInterrogate(t *testing.T) {
 	if out.Answer == "" {
 		t.Fatal("empty interrogation answer")
 	}
-	rec = do(s, "POST", "/api/report/ZZZZ/ask", map[string]any{"question": "apa?"})
+	rec = doAuth(t, s, "POST", "/api/report/ZZZZ/ask", map[string]any{"question": "apa?"})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404 for unknown ticker", rec.Code)
 	}
@@ -173,11 +175,11 @@ func TestInterrogate(t *testing.T) {
 // Concentrated fixture warns >40% sector; accuracy math covered.
 func TestPortfolioAndAccuracy(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "GET", "/api/portfolio/risk", nil)
+	rec := doAuth(t, s, "GET", "/api/portfolio/risk", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d", rec.Code)
 	}
-	rec = do(s, "GET", "/api/accuracy", nil)
+	rec = doAuth(t, s, "GET", "/api/accuracy", nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d", rec.Code)
 	}
@@ -203,19 +205,19 @@ func TestFlowForeignWindow(t *testing.T) {
 // Unknown routine types are rejected; missing ids 404.
 func TestRoutineValidation(t *testing.T) {
 	s := testServer(t)
-	rec := do(s, "POST", "/api/routines", map[string]any{"type": "not-a-routine"})
+	rec := doAuth(t, s, "POST", "/api/routines", map[string]any{"type": "not-a-routine"})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
-	rec = do(s, "PATCH", "/api/routines/999999", map[string]any{"enabled": false})
+	rec = doAuth(t, s, "PATCH", "/api/routines/999999", map[string]any{"enabled": false})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}
-	rec = do(s, "DELETE", "/api/routines/999999", nil)
+	rec = doAuth(t, s, "DELETE", "/api/routines/999999", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}
-	rec = do(s, "DELETE", "/api/alerts/999999", nil)
+	rec = doAuth(t, s, "DELETE", "/api/alerts/999999", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}
@@ -225,27 +227,27 @@ func TestRoutineValidation(t *testing.T) {
 func TestDestinations(t *testing.T) {
 	s := testServer(t)
 	// Invalid kind -> 422.
-	rec := do(s, "POST", "/api/destinations", map[string]any{"kind": "sms"})
+	rec := doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "sms"})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
 	// Telegram without chat_id -> 422.
-	rec = do(s, "POST", "/api/destinations", map[string]any{"kind": "telegram", "bot_token": "x"})
+	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "telegram", "bot_token": "x"})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
 	// Discord non-https -> 422.
-	rec = do(s, "POST", "/api/destinations", map[string]any{"kind": "discord", "webhook_url": "http://x"})
+	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "webhook_url": "http://x"})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
 	// Valid discord create -> 201.
-	rec = do(s, "POST", "/api/destinations", map[string]any{"kind": "discord", "label": "ops", "webhook_url": "https://discord.example/hook"})
+	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "label": "ops", "webhook_url": "https://discord.example/hook"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("code = %d, body %s", rec.Code, rec.Body.String())
 	}
 	// List masks secrets.
-	rec = do(s, "GET", "/api/destinations", nil)
+	rec = doAuth(t, s, "GET", "/api/destinations", nil)
 	var out struct {
 		Destinations []map[string]any `json:"destinations"`
 	}
@@ -262,11 +264,11 @@ func TestDestinations(t *testing.T) {
 		t.Fatalf("configured flag = %v", out.Destinations[0])
 	}
 	// Missing id -> 404 on patch and delete.
-	rec = do(s, "PATCH", "/api/destinations/999999", map[string]any{"enabled": false})
+	rec = doAuth(t, s, "PATCH", "/api/destinations/999999", map[string]any{"enabled": false})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}
-	rec = do(s, "DELETE", "/api/destinations/999999", nil)
+	rec = doAuth(t, s, "DELETE", "/api/destinations/999999", nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code = %d, want 404", rec.Code)
 	}

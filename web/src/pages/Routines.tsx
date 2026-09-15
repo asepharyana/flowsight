@@ -17,7 +17,7 @@ const MANFAAT: Record<string, { judul: string; desc: string }> = {
   "weekend-review": { judul: "📝 Review mingguan", desc: "Ringkasan seminggu: apa yang terjadi dan pelajaran." },
 };
 
-export default function Routines() {
+function RoutinesInner() {
   const [data, { refetch }] = createResource(() => api.routines());
   const [runs, { refetch: refetchRuns }] = createResource(() => api.runs().then((r) => r.runs.slice(0, 20)));
   const [type_, setType] = createSignal("morning-briefing");
@@ -96,4 +96,10 @@ export default function Routines() {
       <div><IstilahStrip /></div>
     </div>
   );
+}
+
+import { Gate } from "../index";
+
+export default function Routines() {
+  return <Gate fitur="Jadwal otomatis">{RoutinesInner()}</Gate>;
 }

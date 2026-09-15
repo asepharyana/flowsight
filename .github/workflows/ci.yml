@@ -154,7 +154,7 @@ jobs:
             sleep 3 && \
             sudo systemctl status flowsight --no-pager --no-legend | head -5"
 
-      - name: Verify service
+      - name: Verify service anti-stale
         run: |
           ssh "$VPS_USER@$VPS_HOST" \
             "curl -s -o /dev/null -w 'local:%{http_code}\n' http://localhost:4022/api/health && \

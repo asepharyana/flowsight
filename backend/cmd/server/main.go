@@ -61,9 +61,14 @@ func main() {
 			}
 		}
 	}
-	// Ensure the demo watchlist exists even without a seed bundle.
+	// Ensure the demo account covers the "semua" default: every ticker with
+	// stored data (fallback: config watchlist).
 	if wl, _ := db.Watchlist(cfg.DemoUserKey); len(wl) == 0 {
-		for _, t := range cfg.Watchlist {
+		seeds, _ := db.AllTickers()
+		if len(seeds) == 0 {
+			seeds = cfg.Watchlist
+		}
+		for _, t := range seeds {
 			_ = db.AddWatch(cfg.DemoUserKey, t)
 		}
 	}

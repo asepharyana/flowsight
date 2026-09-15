@@ -35,6 +35,9 @@ type Server struct {
 	LLM      *llm.Client
 	Validate *validator.Validate
 	Hub      *Hub
+	// Commit + StartedAt power /api/version (CI anti-stale proof).
+	Commit    string
+	StartedAt time.Time
 }
 
 // New builds a Server with all dependencies wired.
@@ -45,6 +48,8 @@ func New(cfg config.Config, db *store.DB, cache *store.Cache, s *sectors.Client)
 		Cfg: cfg, DB: db, Sectors: s, Sched: sched, LLM: llmc,
 		Validate: validator.New(),
 		Hub:      NewHub(),
+		Commit:   readCommit(),
+		StartedAt: time.Now(),
 	}
 	srv.Engine = &routines.Engine{DB: db, Notifier: sched.Notifier, UserKey: cfg.DemoUserKey,
 		Publish: srv.Hub.Publish}
@@ -66,33 +71,41 @@ func (s *Server) Router() http.Handler {
 		r.Get("/auth/callback", s.AuthCallback)
 		r.Get("/auth/me", s.AuthMe)
 		r.Post("/auth/logout", s.AuthLogout)
+		r.Post("/auth/signup", s.AuthSignup)
+		r.Post("/auth/login", s.AuthLogin)
+		r.Get("/version", s.Version)
 		r.Get("/stream", s.Stream)
+		// Publik baca: dashboard bisa dibuka tanpa login.
 		r.Get("/flow/summary", s.FlowSummary)
 		r.Get("/flow/broker", s.FlowBroker)
 		r.Get("/flow/foreign", s.FlowForeign)
-		r.Post("/screen", s.Screen)
-		r.Get("/routines", s.ListRoutines)
-		r.Post("/routines", s.CreateRoutine)
-		r.Patch("/routines/{id}", s.UpdateRoutine)
-		r.Delete("/routines/{id}", s.DeleteRoutine)
-		r.Get("/routine-runs", s.RunHistory)
 		r.Get("/briefing/today", s.BriefingToday)
-		r.Get("/alerts", s.ListAlerts)
-		r.Post("/alerts", s.CreateAlert)
-		r.Delete("/alerts/{id}", s.DeleteAlert)
-		r.Get("/alert-events", s.AlertEvents)
-		r.Get("/destinations", s.ListDestinations)
-		r.Post("/destinations", s.CreateDestination)
-		r.Patch("/destinations/{id}", s.UpdateDestination)
-		r.Delete("/destinations/{id}", s.DeleteDestination)
-		r.Post("/report/{ticker}", s.BuildReport)
-		r.Post("/report/{ticker}/ask", s.Interrogate)
-		r.Get("/watchlist", s.GetWatchlist)
-		r.Post("/watchlist", s.AddWatch)
-		r.Delete("/watchlist/{ticker}", s.RemoveWatch)
-		r.Get("/portfolio/risk", s.PortfolioRisk)
-		r.Get("/accuracy", s.Accuracy)
-		r.Post("/chat", s.Chat)
+		// Fitur + filter: wajib login (session cookie, tanpa demo bypass).
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireLogin)
+			r.Post("/screen", s.Screen)
+			r.Get("/routines", s.ListRoutines)
+			r.Post("/routines", s.CreateRoutine)
+			r.Patch("/routines/{id}", s.UpdateRoutine)
+			r.Delete("/routines/{id}", s.DeleteRoutine)
+			r.Get("/routine-runs", s.RunHistory)
+			r.Get("/alerts", s.ListAlerts)
+			r.Post("/alerts", s.CreateAlert)
+			r.Delete("/alerts/{id}", s.DeleteAlert)
+			r.Get("/alert-events", s.AlertEvents)
+			r.Get("/destinations", s.ListDestinations)
+			r.Post("/destinations", s.CreateDestination)
+			r.Patch("/destinations/{id}", s.UpdateDestination)
+			r.Delete("/destinations/{id}", s.DeleteDestination)
+			r.Post("/report/{ticker}", s.BuildReport)
+			r.Post("/report/{ticker}/ask", s.Interrogate)
+			r.Get("/watchlist", s.GetWatchlist)
+			r.Post("/watchlist", s.AddWatch)
+			r.Delete("/watchlist/{ticker}", s.RemoveWatch)
+			r.Get("/portfolio/risk", s.PortfolioRisk)
+			r.Get("/accuracy", s.Accuracy)
+			r.Post("/chat", s.Chat)
+		})
 	})
 	if s.Cfg.StaticDir != "" {
 		r.NotFound(s.spaHandler())

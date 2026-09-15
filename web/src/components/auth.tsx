@@ -2,6 +2,7 @@ import { createResource, createSignal, Show } from "solid-js";
 import { api, type AuthUser } from "../lib/api";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
 // Theme: .dark class on <html> (shadcn convention). Default dark.
 function theme(): string {
@@ -30,7 +31,30 @@ export function useAuth() {
   const [me, { refetch }] = createResource(async (): Promise<AuthUser | null> => {
     try { return (await api.me()).user; } catch { return null; }
   });
-  return { me, refetch };
+  const [version] = createResource(async () => {
+    try { return await api.version(); } catch { return null; }
+  });
+  return { me, refetch, version };
+}
+
+// ButuhLogin: kartu ajakan login untuk halaman fitur yg di-hide bila logout.
+export function ButuhLogin(props: { fitur: string }) {
+  return (
+    <div class="mx-auto max-w-md py-[6vh]">
+      <Card>
+        <CardHeader class="text-center">
+          <CardTitle class="text-2xl">🔒 {props.fitur} perlu login</CardTitle>
+          <CardDescription>
+            Biar datanya milik kamu sendiri (watchlist, notifikasi, report) —
+            daftar gratis, cukup username + password.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="text-center">
+          <a href="/login"><Button size="lg">Masuk / Daftar</Button></a>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export function AuthButton(props: { me: AuthUser | null | undefined; onLogout: () => void }) {

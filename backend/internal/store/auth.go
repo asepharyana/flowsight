@@ -5,10 +5,24 @@ import (
 	"encoding/hex"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // User is one Google-authenticated account. UserKey (`u:<google_sub>`) is
-// the scoping key used by every user-owned table.
+// the scoping key used by every user-owned table. Local accounts
+// (username+password signup) store google_sub='local:<username>' with
+// username+password_hash set, keeping session scoping unchanged.
+type authErr string
+
+func (e authErr) Error() string { return string(e) }
+
+const (
+	ErrBadLogin    authErr = "username atau password salah"
+	ErrBadUsername authErr = "username 3-32 karakter: huruf, angka, titik, _ -"
+	ErrBadPassword authErr = "password minimal 8 karakter"
+	ErrTaken       authErr = "username sudah dipakai"
+)
 type User struct {
 	ID        int64
 	GoogleSub string
@@ -107,4 +121,67 @@ func (db *DB) UserKeyBySession(token string) (string, bool) {
 func (db *DB) DeleteSession(token string) error {
 	_, err := db.Exec(`DELETE FROM sessions WHERE token=?`, token)
 	return err
+}
+
+// localSub maps a username to its google_sub value for local accounts.
+func localSub(username string) string { return "local:" + strings.ToLower(username) }
+
+// CreateLocalUser registers a username+password account (bcrypt cost 10).
+// Username: 3-32 chars [a-z0-9._-]; password: min 8 chars.
+func (db *DB) CreateLocalUser(username, password string) (*User, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if !validUsername(username) {
+		return nil, ErrBadUsername
+	}
+	if len(password) < 8 {
+		return nil, ErrBadPassword
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	if err != nil {
+		return nil, err
+	}
+	sub := localSub(username)
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`INSERT INTO users(google_sub,email,name,username,password_hash,created_at)
+		VALUES(?,?,?,?,?,?)`, sub, username, username, username, string(hash), now); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return nil, ErrTaken
+		}
+		return nil, err
+	}
+	return db.UserBySub(sub)
+}
+
+// CheckLocalUser verifies username+password, returning the user on success.
+func (db *DB) CheckLocalUser(username, password string) (*User, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	var u User
+	var hash string
+	if err := db.QueryRow(`SELECT id,google_sub,email,name,avatar_url,created_at,password_hash
+		FROM users WHERE username=?`, username).
+		Scan(&u.ID, &u.GoogleSub, &u.Email, &u.Name, &u.AvatarURL, &u.CreatedAt, &hash); err != nil {
+		return nil, ErrBadLogin
+	}
+	if hash == "" {
+		return nil, ErrBadLogin // Google-only account, no local password
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
+		return nil, ErrBadLogin
+	}
+	u.UserKey = UserKeyForSub(u.GoogleSub)
+	return &u, nil
+}
+
+// validUsername allows 3-32 chars of lowercase letters, digits, . _ -.
+func validUsername(u string) bool {
+	if len(u) < 3 || len(u) > 32 {
+		return false
+	}
+	for _, c := range u {
+		if c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '.' || c == '_' || c == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }

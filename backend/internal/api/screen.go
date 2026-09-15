@@ -55,7 +55,11 @@ func (s *Server) Screen(w http.ResponseWriter, r *http.Request) {
 	if len(universe) == 0 {
 		universe, _ = s.DB.Watchlist(s.userKey(r))
 		if len(universe) == 0 {
-			universe = s.Cfg.Watchlist
+			if all, err := s.DB.AllTickers(); err == nil && len(all) > 0 {
+				universe = all
+			} else {
+				universe = s.Cfg.Watchlist
+			}
 		}
 	}
 	var rows []ScreenRow

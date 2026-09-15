@@ -8,15 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Skeleton } from "../components/ui/skeleton";
 import { useNavigate } from "@solidjs/router";
 
-// Preset awam -> body /api/screen.
+// Preset awam -> body /api/screen. PRESET_SEMUA = default auto-jalan.
+export const PRESET_SEMUA = { label: "📦 Semua — urut paling menarik", desc: "Tanpa filter, ranking gabungan", body: { limit: 20 } };
 const PRESETS: { label: string; desc: string; body: Record<string, unknown> }[] = [
   { label: "🔥 Yang lagi diborong bandar", desc: "Broker besar net-beli besar", body: { institutional: { broker_score_min: 5 }, limit: 20 } },
   { label: "🌍 Yang asing lagi beli", desc: "Uang luar negeri masuk", body: { institutional: { foreign_inflow: true }, limit: 20 } },
   { label: "🕵️ Yang orang dalamnya ikut beli", desc: "Insider buying terdeteksi", body: { institutional: { insider_buying: true }, limit: 20 } },
-  { label: "📦 Semua — urut paling menarik", desc: "Tanpa filter, ranking gabungan", body: { limit: 20 } },
+  PRESET_SEMUA,
 ];
 
-export default function Screener() {
+function ScreenerInner() {
   const navigate = useNavigate();
   const [rows, setRows] = createSignal<ScreenRow[]>([]);
   const [ran, setRan] = createSignal(false);
@@ -31,6 +32,8 @@ export default function Screener() {
     } catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
   }
+  // Default = semua: auto-jalan preset "Semua" sekali saat halaman dibuka.
+  if (!ran() && !busy()) void runPreset(PRESET_SEMUA);
   const hasil = () => rows().map((r) => ({ row: r, ...verdictFor(r) }));
   return (
     <div class="space-y-4">
@@ -76,4 +79,10 @@ export default function Screener() {
       <div><IstilahStrip /></div>
     </div>
   );
+}
+
+import { Gate } from "../index";
+
+export default function Screener() {
+  return <Gate fitur="Cari saham">{ScreenerInner()}</Gate>;
 }

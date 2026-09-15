@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Skeleton } from "../components/ui/skeleton";
 Chart.register(...registerables);
 
-export default function Portfolio() {
+function PortfolioInner() {
   const [risk] = createResource(() => api.risk());
   const conc = () => risk()?.concentration || [];
   const betaN = () => Number(risk()?.beta ?? 1);
@@ -65,4 +65,10 @@ export default function Portfolio() {
       <div><IstilahStrip /></div>
     </div>
   );
+}
+
+import { Gate } from "../index";
+
+export default function Portfolio() {
+  return <Gate fitur="Portofolio">{PortfolioInner()}</Gate>;
 }
