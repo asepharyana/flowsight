@@ -16,7 +16,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	lastCycle, schedOK := s.Sched.Status()
 	today := time.Now().Format("2006-01-02")
 	credits := s.DB.CreditsToday(today)
-	lastDate, _, _, _ := s.DB.LatestBriefing()
+	lastDate, _, _, _, _ := s.DB.LatestBriefing()
 	cutoff := model.StaleSession(time.Now())
 	stale := []string{}
 	if lastDate != "" {

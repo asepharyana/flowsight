@@ -21,7 +21,9 @@ export default function Dashboard() {
   const [foreign] = createResource(chartTiker, (t) => api.flowForeign(t).catch(() => null));
 
   const ringkasan = () => {
-    const p = (briefing() as { payload: string } | null)?.payload;
+    const n = briefing()?.narasi?.trim();
+    if (n) return n.split("\n").map((s) => s.replace(/^[-•\d.]+\s*/, "")).filter(Boolean).slice(0, 3);
+    const p = briefing()?.payload;
     return p ? heroSummary(p) : [];
   };
   const sorotan = () => (screen()?.rows || []).map((r) => ({ row: r, ...verdictFor(r) }));

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -115,7 +116,7 @@ func (s *Server) RunHistory(w http.ResponseWriter, r *http.Request) {
 // When no briefing exists yet it generates one on demand from current
 // snapshots (so the UI never shows an empty page), then persists it.
 func (s *Server) BriefingToday(w http.ResponseWriter, r *http.Request) {
-	date, payload, cites, err := s.DB.LatestBriefing()
+	date, payload, cites, narasi, err := s.DB.LatestBriefing()
 	if err != nil {
 		uk := s.userKey(r)
 		p, cc, gerr := s.Engine.BriefingFor(r.Context(), uk)
@@ -130,8 +131,23 @@ func (s *Server) BriefingToday(w http.ResponseWriter, r *http.Request) {
 		}
 		date, payload, cites = todayUTC(), p, string(ccJSON)
 	}
+	// Lazy narration: polish once via LLM, cache in DB, serve thereafter.
+	// Any LLM failure leaves narasi empty (FE falls back to rules summary).
+	if narasi == "" && s.LLM.Available() {
+		if text, nerr := s.LLM.Complete(r.Context(), s.Cfg.LLMSynth,
+			"Kamu asisten pasar saham Indonesia yang ramah. Poles ringkasan data "+
+				"berikut jadi TEPAT 3 kalimat Bahasa Indonesia santai untuk orang awam. "+
+				"Kalimat 1: saham apa yang paling diborong + artinya. "+
+				"Kalimat 2: arah uang asing. Kalimat 3: hal yang perlu diperhatikan. "+
+				"Setiap angka WAJIB berasal dari data — jangan mengarang. Tanpa sapaan.",
+			"Data:\n"+head(payload, 2500), 300); nerr == nil && text != "" {
+			narasi = strings.TrimSpace(text)
+			_ = s.DB.SaveNarasi(date, narasi)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"date": date, "payload": payload, "citations": cites,
+		"date": date, "payload": payload, "citations": cites, "narasi": narasi,
 	})
 }
 

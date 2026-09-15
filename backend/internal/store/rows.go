@@ -637,11 +637,19 @@ func (db *DB) SaveBriefing(date, payload, cites string) error {
 	return err
 }
 
-// LatestBriefing returns the newest briefing.
-func (db *DB) LatestBriefing() (date, payload, cites string, err error) {
-	err = db.QueryRow(`SELECT date, payload_json, citations_json FROM briefings
-		ORDER BY date DESC LIMIT 1`).Scan(&date, &payload, &cites)
-	return date, payload, cites, err
+// SaveNarasi caches the LLM-polished narration for a briefing date
+// (best-effort; empty string clears it).
+func (db *DB) SaveNarasi(date, narasi string) error {
+	_, err := db.Exec(`UPDATE briefings SET narasi=? WHERE date=?`, narasi, date)
+	return err
+}
+
+// LatestBriefing returns the newest briefing (plus cached narration).
+func (db *DB) LatestBriefing() (date, payload, cites, narasi string, err error) {
+	err = db.QueryRow(`SELECT date, payload_json, citations_json,
+		COALESCE(narasi,'') FROM briefings
+		ORDER BY date DESC LIMIT 1`).Scan(&date, &payload, &cites, &narasi)
+	return date, payload, cites, narasi, err
 }
 
 // Accuracy ledger.

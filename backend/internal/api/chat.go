@@ -42,7 +42,7 @@ func (s *Server) Chat(w http.ResponseWriter, r *http.Request) {
 		citesRaw = cites
 	} else {
 		// Unscoped: ground on the latest briefing + watchlist.
-		_, payload, cites, err := s.DB.LatestBriefing()
+		_, payload, cites, _, err := s.DB.LatestBriefing()
 		if err != nil {
 			ground = "no briefing or report data yet"
 		} else {

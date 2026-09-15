@@ -32,6 +32,7 @@ type Report struct {
 	Synthesis    agents.Synthesis    `json:"synthesis"`
 	AgentScores  []model.AgentResult `json:"agent_scores"`
 	AllCitations []model.Citation    `json:"citations"`
+	NarasiAwam   string              `json:"narasi_awam,omitempty"`
 }
 
 // Builder assembles reports from agent runs over stored snapshots.
@@ -85,7 +86,44 @@ func (b *Builder) Build(ctx context.Context, ticker, profile string) (Report, in
 		Ticker: ticker, GeneratedAt: todayStr(),
 		Sections: sections, Synthesis: synth,
 		AgentScores: results, AllCitations: all,
+		NarasiAwam: b.narasiAwam(ctx, ticker, synth, sections),
 	}, id, nil
+}
+
+// narasiAwam polishes the rule-based synthesis into plain Indonesian for
+// non-experts (verdict + 3 alasan + arti + risiko). Best-effort: any LLM
+// failure returns "" and the FE falls back to raw sections.
+func (b *Builder) narasiAwam(ctx context.Context, ticker string, synth agents.Synthesis, sections []Section) string {
+	if b.Deps.LLM == nil || !b.Deps.LLM.Available() {
+		return ""
+	}
+	var sb strings.Builder
+	for _, s := range sections {
+		if strings.TrimSpace(s.Body) != "" {
+			sb.WriteString("- " + s.Name + ": " + s.Body + "\n")
+		}
+	}
+	text, err := b.Deps.LLM.Complete(ctx, b.Deps.SynthModel,
+		"Kamu asisten pasar saham Indonesia yang ramah. Dari data report berikut, tulis Bahasa Indonesia santai untuk orang awam dengan format:\n"+
+			"Baris 1: KESIMPULAN: <Dilirik/Tahan/Dilepas> — 1 kalimat.\n"+
+			"Baris 2-4: 3 alasan (masing-masing 1 kalimat, sebut angkanya).\n"+
+			"Baris 5: ARTINYA BUAT SAYA: 1 kalimat.\n"+
+			"Baris 6: RISIKO: 1 kalimat.\n"+
+			"Setiap angka WAJIB dari data — jangan mengarang. Maksimal 150 kata.",
+		"Ticker: "+ticker+"\nRekomendasi sistem: "+synth.Recommendation+
+			" (conviction "+fmt.Sprint(synth.Conviction)+"/5)\nTesis: "+synth.Thesis+
+			"\nData:\n"+head(sb.String(), 2500), 400)
+	if err != nil || strings.TrimSpace(text) == "" {
+		return ""
+	}
+	return strings.TrimSpace(text)
+}
+
+func head(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }
 
 func citesOf(byAgent map[string]model.AgentResult, names ...string) []model.Citation {

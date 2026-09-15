@@ -48,6 +48,12 @@ export default function Report() {
       <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
       <Show when={busy()}><div class="space-y-2"><Skeleton class="h-32 w-full" /><Skeleton class="h-24 w-full" /></div></Show>
       <Show when={rep()}>
+        <Show when={rep()!.narasi_awam}>
+          <Card class="border-primary/30 bg-gradient-to-br from-primary/10 to-transparent">
+            <CardHeader><CardTitle class="text-xl">Kesimpulan buat kamu 🤝</CardTitle></CardHeader>
+            <CardContent><p class="whitespace-pre-wrap text-base leading-relaxed">{rep()!.narasi_awam}</p></CardContent>
+          </Card>
+        </Show>
         <Card class="border-l-4 border-l-primary">
           <CardContent class="flex flex-wrap items-center gap-2 pt-6">
             <RecBadge rec={rep()!.synthesis.recommendation} />

@@ -21,7 +21,7 @@ export interface FlowSummary { date: string; foreign_net_total: number; top_accu
 export interface ScreenRow { symbol: string; name: string; composite: number; breakdown: Record<string, unknown>; citations: Citation[] }
 export interface Routine { id: number; user_key: string; type: string; schedule_cron: string; channels_json?: string; channels?: string[]; enabled: boolean; last_run?: unknown }
 export interface AlertItem { id: number; user_key: string; name: string; rule_json: string; channels_json: string; last_fired: string }
-export interface ReportPayload { ticker: string; generated_at: string; sections: { name: string; body: string; citations: Citation[] }[]; synthesis: { recommendation: string; conviction: number; thesis: string; position_pct: number; conflict: boolean; conflict_note?: string }; agent_scores: unknown[]; citations: Citation[] }
+export interface ReportPayload { ticker: string; generated_at: string; sections: { name: string; body: string; citations: Citation[] }[]; synthesis: { recommendation: string; conviction: number; thesis: string; position_pct: number; conflict: boolean; conflict_note?: string }; agent_scores: unknown[]; citations: Citation[]; narasi_awam?: string }
 export interface AuthUser { id: number; email: string; name: string; avatar_url: string; user_key: string; google_configured: boolean }
 export const api = {
   health: (force = false) => req<Health>(`/api/health${force ? "?force=1" : ""}`),
@@ -33,7 +33,7 @@ export const api = {
   createRoutine: (body: Record<string, unknown>) => req<{ id: number }>("/api/routines", { method: "POST", body: JSON.stringify(body) }),
   updateRoutine: (id: number, body: Record<string, unknown>) => req<unknown>(`/api/routines/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   runs: (routine_id?: number) => req<{ runs: Record<string, unknown>[] }>(`/api/routine-runs${routine_id ? `?routine_id=${routine_id}` : ""}`),
-  briefing: () => req<{ date: string; payload: string; citations: string }>("/api/briefing/today"),
+  briefing: () => req<{ date: string; payload: string; citations: string; narasi?: string }>("/api/briefing/today"),
   destinations: () => req<{ destinations: { id: number; kind: string; label: string; enabled: boolean; configured: boolean }[] }>("/api/destinations"),
   createDestination: (body: Record<string, unknown>) => req<{ id: number }>("/api/destinations", { method: "POST", body: JSON.stringify(body) }),
   updateDestination: (id: number, body: Record<string, unknown>) => req<unknown>(`/api/destinations/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
