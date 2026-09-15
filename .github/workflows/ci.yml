@@ -149,13 +149,28 @@ jobs:
             (cd /home/code/flowsight && git fetch origin main && git reset --hard origin/main || true) && \
             sudo mkdir -p /var/lib/flowsight/data && sudo chown -R code:code /var/lib/flowsight && \
             (sudo cp /home/code/flowsight/deploy/flowsight.service /etc/systemd/system/flowsight.service && sudo systemctl daemon-reload || true) && \
+            echo -n "$GITHUB_SHA" | sudo tee /var/lib/flowsight/version.txt >/dev/null && \
+            sudo chown code:code /var/lib/flowsight/version.txt && \
             sudo systemctl enable --now flowsight && \
             sudo systemctl restart flowsight && \
             sleep 3 && \
             sudo systemctl status flowsight --no-pager --no-legend | head -5"
 
       - name: Verify service anti-stale
+        env:
+          PUSHED_SHA: ${{ github.sha }}
         run: |
           ssh "$VPS_USER@$VPS_HOST" \
             "curl -s -o /dev/null -w 'local:%{http_code}\n' http://localhost:4022/api/health && \
              curl -sk -o /dev/null -w 'public:%{http_code}\n' https://sectors-hackaton.asepharyana.my.id/api/health"
+          for i in $(seq 1 20); do
+            LIVE=$(curl -sk https://sectors-hackaton.asepharyana.my.id/api/version 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('commit',''))" 2>/dev/null || true)
+            echo "attempt $i/20: live=${LIVE:0:7} want=${PUSHED_SHA:0:7}"
+            if [ -n "$LIVE" ] && [ "$LIVE" = "$PUSHED_SHA" ]; then
+              echo "Anti-stale OK: live commit matches pushed SHA"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "STALE: live commit differs from pushed SHA after 5 min"
+          exit 1

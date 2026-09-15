@@ -35,8 +35,7 @@ type Server struct {
 	LLM      *llm.Client
 	Validate *validator.Validate
 	Hub      *Hub
-	// Commit + StartedAt power /api/version (CI anti-stale proof).
-	Commit    string
+	// StartedAt powers /api/version (CI anti-stale proof: process age).
 	StartedAt time.Time
 }
 
@@ -48,7 +47,6 @@ func New(cfg config.Config, db *store.DB, cache *store.Cache, s *sectors.Client)
 		Cfg: cfg, DB: db, Sectors: s, Sched: sched, LLM: llmc,
 		Validate: validator.New(),
 		Hub:      NewHub(),
-		Commit:   readCommit(),
 		StartedAt: time.Now(),
 	}
 	srv.Engine = &routines.Engine{DB: db, Notifier: sched.Notifier, UserKey: cfg.DemoUserKey,
