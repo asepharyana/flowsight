@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -175,6 +176,15 @@ func (s *Scheduler) RunCycle(ctx context.Context) error {
 			return err
 		}
 	}
+	// Full-universe rotation: every cycle pull depth (foreign flow included)
+	// for a slice of the remaining universe, credit-aware, so the dashboard
+	// chart picker eventually covers all ~800 IDX tickers, not just the 5.
+	if err := s.rotateDepth(ctx); err != nil {
+		log.Printf("scheduler: rotate: %v", err)
+	}
+	if err := guard(); err != nil {
+		return err
+	}
 	if err := s.events(ctx); err != nil {
 		log.Printf("scheduler: events: %v", err)
 	}
@@ -234,21 +244,52 @@ func (s *Scheduler) reference(ctx context.Context) error {
 	return nil
 }
 
-// universe sweeps close/ pages for the latest trading day.
+// universe sweeps close/ pages for the latest trading day and persists the
+// full ticker list (all pages, not just the last) so AllTickers() knows the
+// whole IDX universe. ~800 tickers = ~27 pages at 30/page; each page burns 1
+// credit. Runs at most once per day (meta universe_last_sweep) and aborts on
+// 429 keeping pages collected so far.
 func (s *Scheduler) universe(ctx context.Context) error {
+	if s.DB.GetMeta("universe_last_sweep") == time.Now().Format("2006-01-02") {
+		return nil // already swept today; rotation fills depth incrementally
+	}
 	offset := 0
-	for page := 0; page < 12; page++ {
-		rows, total, err := s.Sectors.ClosePage(ctx, "", 30, offset)
+	var all []sectors.CloseRow
+	for page := 0; page < 40; page++ {
+		rows, _, err := s.Sectors.ClosePage(ctx, "", 30, offset)
 		if err != nil {
+			// Rate-limited mid-sweep: keep pages collected so far if any.
+			if len(all) > 0 {
+				break
+			}
 			return err
 		}
-		if raw, err := json.Marshal(rows); err == nil && len(rows) > 0 {
-			_ = s.DB.SaveSnapshot("IDX", rows[0].Date, "close", string(raw))
-		}
+		all = append(all, rows...)
 		offset += len(rows)
-		if offset >= total || len(rows) == 0 {
+		if len(rows) == 0 {
 			break
 		}
+	}
+	if len(all) == 0 {
+		return nil
+	}
+	s.DB.SetMeta("universe_last_sweep", time.Now().Format("2006-01-02"))
+	date := all[0].Date
+	for _, r := range all {
+		if r.Date > date {
+			date = r.Date
+		}
+	}
+	raw, _ := json.Marshal(all)
+	_ = s.DB.SaveSnapshot("IDX", date, "close", string(raw))
+	// Persist the universe ticker list so AllTickers() can return the full
+	// IDX set instead of only tickers that have depth data yet.
+	uni := make([]store.UniverseRow, 0, len(all))
+	for _, r := range all {
+		uni = append(uni, store.UniverseRow{Symbol: r.Symbol, Close: r.Close, Date: r.Date})
+	}
+	if err := s.DB.SaveUniverse(uni); err != nil {
+		log.Printf("scheduler: universe save: %v", err)
 	}
 	return nil
 }
@@ -316,6 +357,48 @@ func (s *Scheduler) tickerDepth(ctx context.Context, ticker string) error {
 			_ = s.DB.SaveSnapshot(ticker, end, "daily", string(raw))
 		}
 	}
+	return nil
+}
+
+// rotateDepth incrementally deep-scans the whole universe across cycles:
+// each cycle it pulls depth for a bounded slice of tickers that don't yet
+// have a foreign-flow snapshot, respecting the credit cap. Progress is
+// tracked via a meta cursor (universe_rotate_offset). Every ticker gets
+// covered every ~80 cycles (10/cycle x 800), and the dashboard picker
+// grows from 5 → ~800 tickers.
+func (s *Scheduler) rotateDepth(ctx context.Context) error {
+	all, err := s.DB.AllTickers()
+	if err != nil || len(all) == 0 {
+		return nil
+	}
+	have, err := s.DB.TickersWithForeign()
+	if err != nil {
+		return err
+	}
+	missing := make([]string, 0, len(all))
+	for _, t := range all {
+		if !have[t] {
+			missing = append(missing, t)
+		}
+	}
+	if len(missing) == 0 {
+		return nil // full coverage reached; daily freshness keeps it fresh
+	}
+	// Round-robin cursor so we don't always start at the same ticker.
+	start, _ := strconv.Atoi(s.DB.GetMeta("universe_rotate_offset"))
+	if start >= len(missing) {
+		start = 0
+	}
+	batch := 10 // 3 credits/ticker = 30 credits; leaves headroom within the cap
+	for i := 0; i < batch; i++ {
+		t := missing[(start+i)%len(missing)]
+		if err := s.tickerDepth(ctx, t); err != nil {
+			// 429 or transient: stop this cycle, resume next.
+			s.DB.SetMeta("universe_rotate_offset", fmt.Sprint((start+i)%len(missing)))
+			return err
+		}
+	}
+	s.DB.SetMeta("universe_rotate_offset", fmt.Sprint((start+batch)%len(missing)))
 	return nil
 }
 

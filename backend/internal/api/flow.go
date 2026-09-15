@@ -17,6 +17,8 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	if date == "" {
 		date = "latest"
 	}
+	// Build the full universe: watchlist if set, else all tickers with data —
+	// so the dashboard chart picker is not limited to a top-5.
 	wl, _ := s.DB.Watchlist(s.userKey(r))
 	if len(wl) == 0 {
 		if all, err := s.DB.AllTickers(); err == nil && len(all) > 0 {
@@ -31,10 +33,20 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 		Brokers int     `json:"brokers"`
 	}
 	var accs []accRow
+	var fkTickers []string
 	foreignTotal := 0.0
 	var closes []map[string]any
 	var cites []model.Citation
-	for _, tk := range wl {
+	// Depth loop bounded to 60 tickers/request for responsiveness; tickers
+	// lacking broker data still appear in foreign_tickers (chart picker) —
+	// the full universe list is served cheaply from the universe table.
+	scanList := wl
+	if len(scanList) > 60 {
+		scanList = scanList[:60]
+	}
+	scanned := map[string]bool{}
+	for _, tk := range scanList {
+		scanned[tk] = true
 		if nets, err := s.DB.NetBuySum5d(tk); err == nil && len(nets) > 0 {
 			sum, n := 0.0, 0
 			for _, v := range nets {
@@ -48,10 +60,21 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, nets, err := s.DB.ForeignLast6(tk); err == nil && len(nets) > 0 {
 			foreignTotal += nets[len(nets)-1]
+			fkTickers = append(fkTickers, tk)
 			cites = append(cites, model.Cite("v2/foreign-flow/"+tk+"/", tk, date))
 		}
 		if px, dx, err := s.DB.LatestClose(tk); err == nil {
 			closes = append(closes, map[string]any{"ticker": tk, "close": px, "date": dx})
+		}
+	}
+	// Rest of the universe: still list them as chart-picker options (foreign
+	// data may exist even if not scanned this request).
+	if len(wl) > 60 {
+		extra, _ := s.DB.TickersWithForeign()
+		for _, tk := range wl {
+			if !scanned[tk] && extra[tk] {
+				fkTickers = append(fkTickers, tk)
+			}
 		}
 	}
 	sort.Slice(accs, func(i, j int) bool { return accs[i].NetSum > accs[j].NetSum })
@@ -61,6 +84,7 @@ func (s *Server) FlowSummary(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"date": date, "foreign_net_total": foreignTotal,
 		"top_accumulation": accs, "closes": closes, "citations": cites,
+		"foreign_tickers": fkTickers,
 	})
 }
 

@@ -1,4 +1,4 @@
-import { createResource, createSignal, createMemo, For, Show } from "solid-js";
+import { createResource, createSignal, createEffect, For, Show } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { api } from "../lib/api";
 import { useAuth } from "../components/auth";
@@ -22,6 +22,13 @@ export default function Dashboard() {
   const [events] = createResource(me, (user) => (user ? api.alertEvents("2000-01-01").then((r) => r.events.slice(0, 5)).catch(() => []) : []));
   const [chartTiker, setChartTiker] = createSignal("BBCA");
   const [foreign] = createResource(chartTiker, (t) => api.flowForeign(t).catch(() => null));
+  // Full picker list = every ticker that has foreign-flow rows.
+  const fkTickers = () => flow()?.foreign_tickers || [];
+  // Keep the current chart ticker valid even when the list changes.
+  createEffect(() => {
+    const list = fkTickers();
+    if (list.length && !list.includes(chartTiker())) setChartTiker(list[0]);
+  });
 
   const ringkasan = () => {
     const n = briefing()?.narasi?.trim();
@@ -124,7 +131,16 @@ export default function Dashboard() {
           <CardDescription><Term kata="foreign flow" /> harian — naik = asing beli, turun = asing jual. Pilih saham:</CardDescription>
         </CardHeader>
         <CardContent>
-          <div class="mb-3 flex flex-wrap gap-2">
+          <div class="mb-3 flex flex-wrap items-center gap-2">
+            <label class="sr-only" for="fk-ticker">Pilih saham</label>
+            <select id="fk-ticker" class="h-9 rounded-md border bg-background px-2 text-sm"
+              value={chartTiker()} onChange={(e) => setChartTiker((e.currentTarget as HTMLSelectElement).value)}>
+              <For each={fkTickers()}>
+                {(t) => <option value={t}>{t}</option>}
+              </For>
+            </select>
+            <span class="text-xs text-muted-foreground">{fkTickers().length} saham tersedia</span>
+            <span class="flex-1" />
             <For each={(flow()?.top_accumulation || []).map((t) => t.ticker)}>{(t) =>
               <Button size="sm" variant={chartTiker() === t ? "default" : "outline"} onClick={() => setChartTiker(t)}>{t}</Button>
             }</For>

@@ -25,7 +25,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export interface Citation { endpoint: string; snapshot_at: string; ticker?: string; stale?: boolean }
 export interface Health { last_cycle_at: string; credits_today: number; scheduler_ok: boolean; stale_flags: string[] }
-export interface FlowSummary { date: string; foreign_net_total: number; top_accumulation: { ticker: string; net_sum: number; brokers: number }[]; closes: { ticker: string; close: number; date: string }[]; citations: Citation[] }
+export interface FlowSummary { date: string; foreign_net_total: number; top_accumulation: { ticker: string; net_sum: number; brokers: number }[]; closes: { ticker: string; close: number; date: string }[]; citations: Citation[]; foreign_tickers?: string[] }
 export interface ScreenRow { symbol: string; name: string; composite: number; breakdown: Record<string, unknown>; citations: Citation[] }
 export interface Routine { id: number; user_key: string; type: string; schedule_cron: string; channels_json?: string; channels?: string[]; enabled: boolean; last_run?: unknown }
 export interface AlertItem { id: number; user_key: string; name: string; rule_json: string; channels_json: string; last_fired: string }

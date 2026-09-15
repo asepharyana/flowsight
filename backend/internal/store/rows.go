@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -545,21 +546,86 @@ func (db *DB) Watchlist(userKey string) ([]string, error) {
 // default universe: dashboard, screener fallback, and scheduler depth all use
 // it when a user has no personal watchlist.
 func (db *DB) AllTickers() ([]string, error) {
-	rows, err := db.Query(`SELECT DISTINCT ticker FROM snapshots
+	// Prefer the persisted full-universe list (from close/ sweep).
+	rows, err := db.Query(`SELECT ticker FROM universe ORDER BY ticker`)
+	if err == nil {
+		var out []string
+		for rows.Next() {
+			var t string
+			if err := rows.Scan(&t); err != nil {
+				rows.Close()
+				break
+			}
+			out = append(out, t)
+		}
+		rows.Close()
+		if len(out) > 0 {
+			return out, nil
+		}
+	}
+	// Fallback: distinct snapshots (avoids pseudo indices).
+	rows2, err := db.Query(`SELECT DISTINCT ticker FROM snapshots
 		WHERE ticker NOT IN ('IDX','ROE') ORDER BY ticker`)
 	if err != nil {
 		return nil, err
 	}
+	defer rows2.Close()
+	var out2 []string
+	for rows2.Next() {
+		var t string
+		if err := rows2.Scan(&t); err != nil {
+			return nil, err
+		}
+		out2 = append(out2, t)
+	}
+	return out2, rows2.Err()
+}
+
+// TickersWithForeign returns the set of tickers that have ≥1 foreign-flow row.
+func (db *DB) TickersWithForeign() (map[string]bool, error) {
+	rows, err := db.Query(`SELECT DISTINCT ticker FROM foreign_flow`)
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
-	var out []string
+	out := map[string]bool{}
 	for rows.Next() {
 		var t string
 		if err := rows.Scan(&t); err != nil {
 			return nil, err
 		}
-		out = append(out, t)
+		out[t] = true
 	}
 	return out, rows.Err()
+}
+
+// SaveUniverse inserts the full ticker universe from the close sweep.
+// UniverseRow mirrors the CloseRow shape without importing sectors (cycle).
+type UniverseRow struct {
+	Symbol string
+	Close  int64
+	Date   string
+}
+
+func (db *DB) SaveUniverse(rows []UniverseRow) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM universe`); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		// Normalize: API returns "BBCA.JK" — strip the suffix so it matches
+		// watchlist/depth keys (BBCA) everywhere.
+		t := strings.TrimSuffix(r.Symbol, ".JK")
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO universe(ticker, close, date) VALUES(?,?,?)`,
+			t, r.Close, r.Date); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // AddWatch inserts a ticker (idempotent).
