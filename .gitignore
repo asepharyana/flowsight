@@ -6,7 +6,7 @@
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
-
+.hermes/
 # Ruflo runtime artifacts (not source)
 .swarm/
 .claude/
