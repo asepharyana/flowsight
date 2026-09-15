@@ -48,13 +48,35 @@ func (db *DB) migrate() error {
 		}
 	}
 	sort.Strings(names)
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations(name TEXT PRIMARY KEY)`); err != nil {
+		return fmt.Errorf("store: schema_migrations: %w", err)
+	}
 	for _, n := range names {
+		var applied int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name=?`, n).Scan(&applied); err != nil {
+			return err
+		}
+		if applied > 0 {
+			continue
+		}
 		b, err := migrationsFS.ReadFile(n)
 		if err != nil {
 			return err
 		}
-		if _, err := db.Exec(string(b)); err != nil {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(string(b)); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("store: migration %s: %w", n, err)
+		}
+		if _, err := tx.Exec(`INSERT INTO schema_migrations(name) VALUES(?)`, n); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
 		}
 	}
 	return nil
