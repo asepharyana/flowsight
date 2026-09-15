@@ -324,9 +324,12 @@ func (s *Scheduler) market(ctx context.Context) error {
 }
 
 // tickerDepth pulls broker-summary/top + foreign-flow + daily per ticker.
+// Dates use time.Now().UTC() — the Sectors API rejects end dates in the
+// future relative to its UTC clock (WIB midnight > UTC previous day).
 func (s *Scheduler) tickerDepth(ctx context.Context, ticker string) error {
-	end := time.Now().Format("2006-01-02")
-	start5 := time.Now().AddDate(0, 0, -6).Format("2006-01-02")
+	now := time.Now().UTC()
+	end := now.Format("2006-01-02")
+	start5 := now.AddDate(0, 0, -6).Format("2006-01-02")
 	if top, err := s.Sectors.BrokerSummaryTop(ctx, ticker, start5, end, 10, "", ""); err == nil {
 		if raw, err := json.Marshal(top); err == nil {
 			_ = s.DB.SaveSnapshot(ticker, end, "broker-summary-top", string(raw))
@@ -343,7 +346,7 @@ func (s *Scheduler) tickerDepth(ctx context.Context, ticker string) error {
 		return err
 	}
 	if ff, err := s.Sectors.ForeignFlow(ctx, ticker,
-		time.Now().AddDate(0, 0, -7).Format("2006-01-02"), end); err == nil {
+		now.AddDate(0, 0, -7).Format("2006-01-02"), end); err == nil {
 		if raw, err := json.Marshal(ff); err == nil {
 			_ = s.DB.SaveSnapshot(ticker, end, "foreign-flow", string(raw))
 			for _, d := range ff.Data {
