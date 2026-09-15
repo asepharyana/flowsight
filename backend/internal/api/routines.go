@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"flowsight/internal/routines"
 	"flowsight/internal/store"
 )
+
+// todayUTC returns today's date (UTC) for briefing persistence.
+func todayUTC() string { return time.Now().UTC().Format("2006-01-02") }
 
 // ListRoutines serves GET /api/routines with last-run status.
 func (s *Server) ListRoutines(w http.ResponseWriter, r *http.Request) {
@@ -108,11 +112,23 @@ func (s *Server) RunHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // BriefingToday serves GET /api/briefing/today: latest payload + citations.
+// When no briefing exists yet it generates one on demand from current
+// snapshots (so the UI never shows an empty page), then persists it.
 func (s *Server) BriefingToday(w http.ResponseWriter, r *http.Request) {
 	date, payload, cites, err := s.DB.LatestBriefing()
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "no briefing yet — run the morning-briefing routine")
-		return
+		uk := s.userKey(r)
+		p, cc, gerr := s.Engine.BriefingFor(r.Context(), uk)
+		if gerr != nil {
+			writeErr(w, http.StatusNotFound, "no briefing yet — subscribe to the morning-briefing routine")
+			return
+		}
+		ccJSON, _ := json.Marshal(cc)
+		if err := s.DB.SaveBriefing(todayUTC(), p, string(ccJSON)); err != nil {
+			writeErr(w, http.StatusBadGateway, "db: "+err.Error())
+			return
+		}
+		date, payload, cites = todayUTC(), p, string(ccJSON)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"date": date, "payload": payload, "citations": cites,

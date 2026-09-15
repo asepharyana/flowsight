@@ -146,6 +146,16 @@ func (e *Engine) deliver(ctx context.Context, r store.Routine, payload string, c
 	return e.Notifier.SendTo(ctx, e.UserKey, f, string(cc))
 }
 
+// BriefingFor runs the morning briefing scoped to owner (watchlist +
+// delivery) without needing a routines row.
+func (e *Engine) BriefingFor(ctx context.Context, owner string) (string, []model.Citation, error) {
+	scoped := *e
+	if owner != "" {
+		scoped.UserKey = owner
+	}
+	return scoped.Briefing(ctx)
+}
+
 // tickers returns the user's watchlist (never empty: falls back to demo set).
 func (e *Engine) tickers() []string {
 	wl, err := e.DB.Watchlist(e.UserKey)
