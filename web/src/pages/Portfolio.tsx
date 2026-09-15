@@ -22,10 +22,13 @@ export default function Portfolio() {
   const saran = () => {
     const c = conc();
     if (!c.length) return "";
+    // Sektor dulu (risiko sistemik) baru bobot single-ticker.
+    const perSek: Record<string, number> = {};
+    for (const x of c) perSek[x.sector] = (perSek[x.sector] || 0) + x.weight;
+    const [sekTop, wSek] = Object.entries(perSek).sort((a, b) => b[1] - a[1])[0];
+    if (wSek > 0.4) return `Sektor ${sekTop} porsinya ${(wSek * 100).toFixed(0)}% — kalau sektor itu jatuh, semua ikut. Coba lirik sektor lain.`;
     const top = c[0];
     if (top.weight > 0.4) return `${top.ticker} porsinya ${(top.weight * 100).toFixed(0)}% — kebanyakan telur di satu keranjang. Pertimbangkan tambah saham beda sektor.`;
-    const sek = [...new Set(c.map((x) => x.sector))];
-    if (sek.length <= 2) return `Cuma ${sek.length} sektor (${sek.join(", ")}) — kalau sektor itu jatuh, semua ikut. Coba lirik sektor lain.`;
     return "Sebarannya sudah lumayan — tidak numpuk di satu tempat. Pertahankan. 👍";
   };
   const chartData = () => ({
