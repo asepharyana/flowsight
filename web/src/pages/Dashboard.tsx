@@ -87,7 +87,7 @@ export default function Dashboard() {
                 const b = (s.row.breakdown || {}) as Record<string, unknown>;
                 const cx = closeMap()[s.row.symbol];
                 return (
-                  <Card class={s.verdict === "Dilirik" ? "border-l-4 border-l-emerald-500" : s.verdict === "Dilepas" ? "border-l-4 border-l-red-500" : ""}>
+                  <Card class={s.verdict === "Dilirik" ? "border-emerald-500/50" : s.verdict === "Dilepas" ? "border-red-500/50" : ""}>
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle class="text-xl font-bold">
                         {s.row.symbol}
