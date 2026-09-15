@@ -52,12 +52,17 @@ func AnalyzeSentiment(ctx context.Context, d Deps, ticker string) model.AgentRes
 	pos, neg, neu := 0, 0, 0
 	var keyEvents []string
 	useLLM := d.LLM != nil && d.LLM.Available()
+	// Cap LLM triage calls: each is one HTTP round-trip to OmniRoute
+	// (~5-15s). More than 5 articles and report generation exceeds the
+	// 60s reverse-proxy read timeout -> 504 with a persisted-but-stale
+	// report. Rules path covers the rest via keywordSentiment.
+	const maxLLMTriage = 5
 	for i, a := range news.Results {
 		if i >= 20 {
 			break
 		}
 		label, conf := "neutral", 0.5
-		if useLLM {
+		if useLLM && i < maxLLMTriage {
 			label, conf = d.LLM.SentimentTriage(ctx, d.TriageModel, a.Title, a.Body)
 		} else {
 			label, conf = keywordSentiment(a.Title + " " + a.Body)

@@ -2,6 +2,7 @@ import { createSignal, For, Show, onMount } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { api, type ReportPayload } from "../lib/api";
 import { Citations } from "../components/Citations";
+import { Term } from "../components/Awam";
 import { PageHead, RecBadge } from "../components/ui";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -84,16 +85,17 @@ export default function Report() {
           </CardContent>
         </Card>
         <For each={rep()!.sections}>
-          {(s) => <Card><CardHeader><CardTitle>{s.name}</CardTitle></CardHeader><CardContent><p class="whitespace-pre-wrap text-sm">{s.body}</p><div class="mt-2"><Citations items={s.citations} /></div></CardContent></Card>}
+          {(s) => <Card><CardHeader><CardTitle class="capitalize">{s.name}</CardTitle></CardHeader><CardContent><p class="whitespace-pre-wrap text-sm">{s.body}</p><div class="mt-2"><Citations items={s.citations} /></div></CardContent></Card>}
         </For>
         <Card>
-          <CardHeader><CardTitle>Interrogate this report</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Tanya soal report ini 💬</CardTitle></CardHeader>
           <CardContent class="space-y-3">
             <div class="flex gap-2">
-              <TextField class="flex-1"><TextFieldInput placeholder="Ask about this report…" value={question()} onInput={(e) => setQuestion(e.currentTarget.value)} /></TextField>
-              <Button onClick={ask} disabled={asking()}>{asking() ? "…" : "Ask"}</Button>
+              <TextField class="flex-1"><TextFieldInput placeholder="Mis. kenapa conviction-nya segitu?" value={question()} onInput={(e) => setQuestion(e.currentTarget.value)} /></TextField>
+              <Button onClick={ask} disabled={asking()}>{asking() ? "…" : "Tanya"}</Button>
             </div>
-            <Show when={answer()}><p class="text-sm">{answer()}</p></Show>
+            <Show when={answer()}><p class="whitespace-pre-wrap text-sm">{answer()}</p></Show>
+            <p class="text-xs text-muted-foreground">Jawaban diambil dari data report ini + <Term kata="citations" /> — bukan karangan.</p>
           </CardContent>
         </Card>
       </Show>

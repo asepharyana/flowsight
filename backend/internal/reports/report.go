@@ -76,7 +76,8 @@ func (b *Builder) Build(ctx context.Context, ticker, profile string) (Report, in
 		all = append(all, s.Citations...)
 	}
 	all = model.MarkStale(all, model.StaleSession(time.Now()))
-	raw, _ := json.Marshal(map[string]any{"ticker": ticker, "sections": sections, "synthesis": synth})
+	narasi := b.narasiAwam(ctx, ticker, synth, sections)
+	raw, _ := json.Marshal(map[string]any{"ticker": ticker, "sections": sections, "synthesis": synth, "narasi_awam": narasi})
 	citesRaw, _ := json.Marshal(all)
 	id, err := b.DB.SaveReport(ticker, string(raw), string(citesRaw))
 	if err != nil {
@@ -86,7 +87,7 @@ func (b *Builder) Build(ctx context.Context, ticker, profile string) (Report, in
 		Ticker: ticker, GeneratedAt: todayStr(),
 		Sections: sections, Synthesis: synth,
 		AgentScores: results, AllCitations: all,
-		NarasiAwam: b.narasiAwam(ctx, ticker, synth, sections),
+		NarasiAwam: narasi,
 	}, id, nil
 }
 
