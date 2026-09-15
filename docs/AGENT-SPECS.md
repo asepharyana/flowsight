@@ -19,7 +19,7 @@ Agents never fetch live; they read snapshots. Fixtures in `tests/fixtures/` prov
   broker (accumulating/distributing/neutral from top/ ranks); (3) sector exposure
   shift week-over-week; (4) emit rotation signal on sign flip with evidence rows.
 - Output: behavior map, rotation signal (from→to + net Rp delta).
-- Fixture: Financials net −Rp 800M → Consumer +Rp 1.1T flip detected.
+- Fixture: Financials net −Rp 800M → Consumer +Rp 1.1B flip detected (sector_flow_idx.json).
 
 ## A3 — News Sentiment (Adaptive RAG)
 
@@ -29,6 +29,8 @@ Agents never fetch live; they read snapshots. Fixtures in `tests/fixtures/` prov
   (3) per-article sentiment + confidence; (4) aggregate trend
   improving/deteriorating/stable; (5) insider summary from filings.
 - Output: score −1..+1, trend, key events (≤5, cited), insider line.
+- Offline path: when no news/filings/suspensions snapshots exist, the agent falls
+  back to the derived `news_items` table (`NewsSince`) instead of failing.
 - Fixture: ticker with 2 bullish + 1 neutral + 1 director buy → positive trend cited.
 
 ## A4 — Fundamental

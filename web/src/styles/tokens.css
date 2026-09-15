@@ -1,0 +1,38 @@
+/* FlowSight design tokens: single source of truth for color, type, spacing. */
+:root {
+  --fs-bg: #0d1117;
+  --fs-surface: #161b22;
+  --fs-border: #30363d;
+  --fs-text: #e6edf3;
+  --fs-muted: #8b949e;
+  --fs-accent: #2f81f7;
+  --fs-buy: #3fb950;
+  --fs-hold: #d29922;
+  --fs-avoid: #f85149;
+  --fs-stale: #9e7bea;
+  --fs-font: "Inter", system-ui, sans-serif;
+  --fs-mono: "JetBrains Mono", ui-monospace, monospace;
+  --fs-radius: 8px;
+  --fs-gap: 12px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fs-bg); color: var(--fs-text); font-family: var(--fs-font); }
+a { color: var(--fs-accent); }
+.fs-app { display: flex; min-height: 100vh; }
+.fs-nav { width: 200px; padding: 16px; border-right: 1px solid var(--fs-border); display: flex; flex-direction: column; gap: 8px; }
+.fs-nav a { padding: 8px 12px; border-radius: var(--fs-radius); text-decoration: none; color: var(--fs-text); }
+.fs-nav a.active { background: var(--fs-surface); }
+.fs-main { flex: 1; padding: 20px; max-width: 1200px; }
+.fs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--fs-gap); }
+.fs-card { background: var(--fs-surface); border: 1px solid var(--fs-border); border-radius: var(--fs-radius); padding: 14px; }
+.fs-muted { color: var(--fs-muted); font-size: 13px; }
+.fs-cite { display: inline-block; font-family: var(--fs-mono); font-size: 11px; border: 1px solid var(--fs-border); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 2px 0; }
+.fs-cite.stale { border-color: var(--fs-stale); color: var(--fs-stale); }
+.fs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fs-table th, .fs-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--fs-border); }
+.fs-input, .fs-btn { font: inherit; padding: 8px 12px; border-radius: var(--fs-radius); border: 1px solid var(--fs-border); }
+.fs-input { background: var(--fs-bg); color: var(--fs-text); }
+.fs-btn { background: var(--fs-accent); color: #fff; cursor: pointer; border: none; }
+.fs-btn.ghost { background: transparent; border: 1px solid var(--fs-border); color: var(--fs-text); }
+.fs-scroll { overflow-x: auto; }
+.rec-BUY { color: var(--fs-buy); } .rec-HOLD { color: var(--fs-hold); } .rec-AVOID { color: var(--fs-avoid); }

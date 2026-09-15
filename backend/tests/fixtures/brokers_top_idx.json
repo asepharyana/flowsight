@@ -1,0 +1,32 @@
+{
+ "date": "2026-09-11",
+ "metric": "net",
+ "origin": "all",
+ "cohort": "all",
+ "results": [
+  {
+   "rank": 1,
+   "broker_code": "MG",
+   "gross": 1080000000000,
+   "net": 520000000000
+  },
+  {
+   "rank": 2,
+   "broker_code": "AK",
+   "gross": 990000000000,
+   "net": 410000000000
+  },
+  {
+   "rank": 3,
+   "broker_code": "CC",
+   "gross": 710000000000,
+   "net": 290000000000
+  },
+  {
+   "rank": 4,
+   "broker_code": "BK",
+   "gross": 580000000000,
+   "net": -180000000000
+  }
+ ]
+}

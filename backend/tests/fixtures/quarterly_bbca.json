@@ -1,0 +1,42 @@
+[
+ {
+  "symbol": "BBCA.JK",
+  "date": "2024-09-30",
+  "revenue": 24000000000,
+  "earnings": 12000000000,
+  "total_assets": 1400000000000,
+  "total_equity": 240000000000,
+  "operating_cash_flow": 15000000000,
+  "total_debt": 200000000000
+ },
+ {
+  "symbol": "BBCA.JK",
+  "date": "2024-12-31",
+  "revenue": 25500000000,
+  "earnings": 12800000000,
+  "total_assets": 1430000000000,
+  "total_equity": 248000000000,
+  "operating_cash_flow": 16000000000,
+  "total_debt": 205000000000
+ },
+ {
+  "symbol": "BBCA.JK",
+  "date": "2025-03-31",
+  "revenue": 26800000000,
+  "earnings": 13400000000,
+  "total_assets": 1460000000000,
+  "total_equity": 256000000000,
+  "operating_cash_flow": 16500000000,
+  "total_debt": 208000000000
+ },
+ {
+  "symbol": "BBCA.JK",
+  "date": "2025-06-30",
+  "revenue": 28200000000,
+  "earnings": 14100000000,
+  "total_assets": 1490000000000,
+  "total_equity": 264000000000,
+  "operating_cash_flow": 17200000000,
+  "total_debt": 210000000000
+ }
+]

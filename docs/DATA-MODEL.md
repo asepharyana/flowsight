@@ -2,7 +2,7 @@
 
 SQLite for the hackathon; schema kept Postgres-compatible (serial → integer PK,
 JSON → TEXT with JSON1, no SQLite-only DDL). Migrations numbered in
-`backend/app/store/migrations/`.
+`backend/internal/store/migrations/`.
 
 ## Tables
 
@@ -17,6 +17,7 @@ JSON → TEXT with JSON1, no SQLite-only DDL). Migrations numbered in
 - `routines(id, user_key, type, schedule_cron, channels_json, enabled)` — 7 types (R1–R7).
 - `routine_runs(id, routine_id, started_at, status, payload_json, credits_used)`.
 - `alerts(id, user_key, name, rule_json, channels_json, last_fired)`.
+- `notification_destinations(id, user_key, kind, label, bot_token, chat_id, webhook_url, enabled, created_at)` — per-user push targets. `kind` telegram needs bot_token+chat_id, discord needs webhook_url (https). Secrets never leave the server in API responses.
 - `alert_events(id, alert_id, ticker, date, message, context_json, citations_json)`.
 - `watchlists(user_key, ticker, added_at)` — PK (user_key, ticker).
 - `reports(id, ticker, generated_at, payload_json, citations_json)`.

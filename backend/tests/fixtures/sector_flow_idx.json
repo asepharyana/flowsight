@@ -1,0 +1,13 @@
+{
+ "week": "2026-09-11",
+ "current": {
+  "financials": -800000000,
+  "consumer": 1100000000,
+  "infrastructure": 200000000
+ },
+ "previous": {
+  "financials": 900000000,
+  "consumer": -300000000,
+  "infrastructure": 150000000
+ }
+}

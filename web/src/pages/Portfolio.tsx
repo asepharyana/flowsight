@@ -1,0 +1,72 @@
+import { createResource, For } from "solid-js";
+import { api } from "../lib/api";
+import { Bar } from "solid-chartjs";
+import { Chart, registerables } from "chart.js";
+Chart.register(...registerables);
+
+export default function Portfolio() {
+  const [risk] = createResource(() => api.risk());
+  const [acc] = createResource(() => api.accuracy());
+  const chartData = () => ({
+    labels: (risk()?.concentration || []).map((c) => c.ticker),
+    datasets: [{ label: "Weight", data: (risk()?.concentration || []).map((c) => +(c.weight * 100).toFixed(1)) }],
+  });
+  return (
+    <div>
+      <h1>Portfolio Risk + Accuracy Ledger</h1>
+      <div class="fs-grid">
+        <div class="fs-card">
+          <h3>Concentration</h3>
+          <Bar data={chartData()} options={{ responsive: true }} />
+          <ul><For each={risk()?.warnings || []}>{(w) => <li>{w}</li>}</For></ul>
+        </div>
+        <div class="fs-card">
+          <h3>Beta vs index</h3>
+          <p style={{ "font-size": "24px" }}>{risk()?.beta ?? "…"}</p>
+          <h3>Correlation heatmap</h3>
+          <CorrHeatmap matrix={risk()?.correlation || {}} />
+        </div>
+        <div class="fs-card">
+          <h3>Agent accuracy</h3>
+          <table class="fs-table">
+            <thead><tr><th>Agent</th><th>Calls</th><th>Resolved</th><th>Hit %</th></tr></thead>
+            <tbody>
+              <For each={acc()?.agents || []}>
+                {(a) => <tr><td>{a.agent}</td><td>{a.calls}</td><td>{a.resolved}</td><td>{(a.hit_rate * 100).toFixed(0)}%</td></tr>}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CorrHeatmap(props: { matrix: Record<string, Record<string, number>> }) {
+  const keys = () => Object.keys(props.matrix);
+  const cell = (v: number) => {
+    const a = Math.min(1, Math.abs(v));
+    const bg = v >= 0 ? `rgba(63,185,80,${(0.15 + 0.65 * a).toFixed(2)})` : `rgba(248,81,73,${(0.15 + 0.65 * a).toFixed(2)})`;
+    return bg;
+  };
+  return (
+    <div class="fs-scroll"><table class="fs-table">
+      <thead><tr><th></th><For each={keys()}>{(k) => <th>{k}</th>}</For></tr></thead>
+      <tbody>
+        <For each={keys()}>
+          {(r) => (
+            <tr>
+              <td><strong>{r}</strong></td>
+              <For each={keys()}>
+                {(c) => {
+                  const v = props.matrix[r]?.[c] ?? 0;
+                  return <td style={{ background: cell(v) }} title={`${r}/${c} = ${v.toFixed(2)}`}>{v.toFixed(2)}</td>;
+                }}
+              </For>
+            </tr>
+          )}
+        </For>
+      </tbody>
+    </table></div>
+  );
+}

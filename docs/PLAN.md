@@ -61,7 +61,7 @@ modelnya sendiri.
 
 ## 5. Agent System
 
-7 specialist agents, dieksekusi paralel via asyncio, diorkestrasi scheduler + on-demand.
+7 specialist agents, dieksekusi paralel via goroutine, diorkestrasi scheduler + on-demand.
 
 | Agent | Input (Sectors API) | Output |
 |---|---|---|
@@ -98,16 +98,17 @@ modelnya sendiri.
 6. **Portfolio Risk** — konsentrasi sektor, matriks korelasi, beta vs IHSG.
 7. **AI Chat sidebar** — context-aware dari watchlist.
 
-## 7. Architecture (detail: docs/ARCHITECTURE.md; stack: docs/TECH-STACK.md)
-- Frontend: Next.js 15 + React 19 + TypeScript + Tailwind v4 + Recharts (SSE streaming, responsive)
-- Backend: Python 3.12 + FastAPI + Uvicorn + httpx (async) + Pydantic v2 (eksekusi agent paralel)
-- LLM: OpenAI SDK v1 provider-agnostic (`LLM_BASE_URL`), gpt-4o-mini triage + gpt-4o synthesis
+## 7. Architecture (authoritative: docs/ARCHITECTURE.md; stack: docs/TECH-STACK.md)
+- Frontend: SolidJS 1.9 + Vite 6 + TypeScript + typed CSS + Chart.js (SSE streaming, responsive)
+- Backend: Go 1.23 + chi v5 + database/sql (modernc.org/sqlite, pure Go) + goroutine
+  (eksekusi agent paralel)
+- LLM: Plain HTTPS ke endpoint OpenAI-compatible (`LLM_BASE_URL`); `LLM_MODEL_TRIAGE` murah + `LLM_MODEL_SYNTH` kuat
 - Data: Sectors API v2 `https://api.sectors.app/v2/`, auth `Authorization: <key>`
   dari env `SECTORS_API_KEY`
 - Store: SQLite (stdlib, skema Postgres-compatible) + Redis 7 cache (degradasi in-memory jika kosong)
-- Scheduler: APScheduler AsyncIO, ingestion tiap 30 min saat market hours + routine harian/mingguan
+- Scheduler: robfig/cron v3 in-process, ingestion tiap 30 min saat market hours + routine harian/mingguan
 - Notify: outbound webhook → Telegram / Discord
-- PDF: ReportLab (tanpa system deps); test: pytest + respx + fakeredis; gate: ruff + mypy + tsc + next build
+- PDF: gofpdf (pure Go, tanpa system deps); test: `go test` + `httptest` (mock upstream Sectors); gate: `gofmt` + `go vet` + `go test` + `tsc` + `vite build`
 
 ## 8. Data model
 - `snapshots(ticker, date, source, payload)` — raw ingestion
@@ -173,13 +174,13 @@ Subsector: subsector/report (6 sections). Phase 2: SGX (9), KLSE (4), mining (19
 | 44–48 | Polish, demo script, deck |
 
 ## 14. Verification
-- `/api/health` last cycle < 35 min saat market hours
-- Routine briefing generate dari snapshot tanpa empty section + citations lengkap
-- Fixture akumulasi → alert event + webhook terkirim ke kanal uji
-- Screener balikin ranked list + breakdown per row
-- Report BBCA < 15s, 7 section terisi dari live API + citations
-- Key hanya dari env, v2 paths only
-- Market tutup → demo pakai historical replay seed
+- `GET /api/health` balik last cycle + credits today + scheduler state (verifikasi dalam smoke test)
+- Fixture briefing generate dari seed tanpa empty section + citations lengkap (unit test)
+- Fixture akumulasi → alert event tercatat (rules_test) + webhook ke kanal uji bila token di-env
+- Screener balikin ranked list + breakdown per row (api_test)
+- Report BBCA 7 section terisi dari seed/live + citations, export PDF/HTML/MD/JSON (smoke)
+- Key hanya dari env (`SECTORS_API_KEY`), v2 paths only (client_test: v1 ditolak sebelum HTTP)
+- Market tutup → demo offline pakai historical replay seed (scripts/demo.sh)
 
 ## 15. Risks
 - Butuh Insider API key sebelum jam 0

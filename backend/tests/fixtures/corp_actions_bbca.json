@@ -1,0 +1,26 @@
+{
+ "symbol": "BBCA.JK",
+ "corporate_actions": {
+  "dividend": [
+   {
+    "ex_date": "2025-06-01",
+    "dividend_per_share": 250
+   }
+  ],
+  "upcoming_dividend": [
+   {
+    "ex_date": "2026-10-07",
+    "dividend_per_share": 270
+   }
+  ],
+  "agm": [
+   {
+    "date": "2026-11-20"
+   }
+  ],
+  "stock_split": [],
+  "right_issue": [],
+  "warrant": [],
+  "bonus": []
+ }
+}

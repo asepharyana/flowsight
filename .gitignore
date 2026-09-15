@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+!.env.example
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
@@ -17,3 +18,27 @@ ruvector.db
 *.db-wal
 .mcp.json
 CLAUDE.md
+
+# Go backend (single binary, pure Go, no CGO)
+*.exe
+*.out
+*.test
+*.prof
+coverage.out
+coverage.html
+bin/
+
+# Frontend (SolidJS + Vite + pnpm; lockfile stays tracked)
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Runtime data & logs (DB_PATH=data/flowsight.db, server logs)
+data/
+!data/.gitkeep
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

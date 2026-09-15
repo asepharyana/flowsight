@@ -1,0 +1,19 @@
+{
+ "symbol": "BBCA.JK",
+ "overview": {
+  "name": "Bank Central Asia"
+ },
+ "valuation": {
+  "pe_ratio": 24.5,
+  "pb_ratio": 4.8
+ },
+ "profitability": {
+  "roe": 0.21
+ },
+ "leverage": {
+  "debt_to_equity": 0.9
+ },
+ "dividend": {
+  "payout_ratio": 0.62
+ }
+}

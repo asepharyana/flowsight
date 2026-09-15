@@ -19,7 +19,7 @@ Nothing here is a date. Items move to [TODO.md](TODO.md) when they are next up.
 
 ### Hackathon core (maps to TODO Now, in order)
 
-**Foundation — data in, health out.** Scaffold (FastAPI + Next.js), Sectors client
+**Foundation — data in, health out.** Scaffold (Go + SolidJS), Sectors client
 with credit counting + param narrowing, SQLite schema (§8 tables), historical seed.
 Health endpoint proves the pipeline breathes.
 

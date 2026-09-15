@@ -1,0 +1,27 @@
+{
+ "symbol": "BBCA.JK",
+ "start": "2026-09-07",
+ "end": "2026-09-11",
+ "data": [
+  {
+   "date": "2026-09-07",
+   "net_foreign_inflow": 120000000000
+  },
+  {
+   "date": "2026-09-08",
+   "net_foreign_inflow": 95000000000
+  },
+  {
+   "date": "2026-09-09",
+   "net_foreign_inflow": 140000000000
+  },
+  {
+   "date": "2026-09-10",
+   "net_foreign_inflow": 80000000000
+  },
+  {
+   "date": "2026-09-11",
+   "net_foreign_inflow": 340000000000
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+[
+ {
+  "code": "MG",
+  "name": "Semesta Indovest",
+  "is_foreign": false,
+  "cohort": "mixed",
+  "license_type": "broker"
+ },
+ {
+  "code": "AK",
+  "name": "UBS Sekuritas",
+  "is_foreign": true,
+  "cohort": "institutional",
+  "license_type": "broker"
+ },
+ {
+  "code": "CC",
+  "name": "Mandiri Sekuritas",
+  "is_foreign": false,
+  "cohort": "institutional",
+  "license_type": "broker"
+ },
+ {
+  "code": "BK",
+  "name": "JPMorgan Sekuritas",
+  "is_foreign": true,
+  "cohort": "institutional",
+  "license_type": "broker"
+ }
+]

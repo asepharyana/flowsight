@@ -1,0 +1,31 @@
+{
+ "results": [
+  {
+   "title": "BBCA laba naik 18% didorong kredit korporasi",
+   "body": "laba naik rekor",
+   "source": "https://idx.example/a",
+   "timestamp": "2026-09-10T08:00:00Z",
+   "symbols": [
+    "BBCA"
+   ]
+  },
+  {
+   "title": "Analis upgrade BBCA, target tumbuh dua digit",
+   "body": "upgrade tumbuh positive",
+   "source": "https://idx.example/b",
+   "timestamp": "2026-09-11T08:00:00Z",
+   "symbols": [
+    "BBCA"
+   ]
+  },
+  {
+   "title": "BBCA umumkan jadwal RUPS tahunan",
+   "body": "jadwal rutin",
+   "source": "https://idx.example/c",
+   "timestamp": "2026-09-09T08:00:00Z",
+   "symbols": [
+    "BBCA"
+   ]
+  }
+ ]
+}

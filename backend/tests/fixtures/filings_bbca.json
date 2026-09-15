@@ -1,0 +1,16 @@
+{
+ "results": [
+  {
+   "title": "Direksi beli saham BBCA",
+   "symbol": "BBCA",
+   "timestamp": "2026-09-10T10:00:00Z",
+   "transaction_type": "buy",
+   "holder_type": "insider",
+   "holder_name": "Direktur X",
+   "amount_transaction": 500000,
+   "price": 9850,
+   "transaction_value": 4925000000,
+   "source": "https://idx.example/f"
+  }
+ ]
+}

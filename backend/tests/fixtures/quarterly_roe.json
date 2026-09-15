@@ -1,0 +1,42 @@
+[
+ {
+  "symbol": "ROE.JK",
+  "date": "2025-09-30",
+  "revenue": 100,
+  "earnings": 100,
+  "total_assets": 2000,
+  "total_equity": 1000,
+  "operating_cash_flow": 50,
+  "total_debt": 100
+ },
+ {
+  "symbol": "ROE.JK",
+  "date": "2025-12-31",
+  "revenue": 105,
+  "earnings": 102,
+  "total_assets": 2200,
+  "total_equity": 1150,
+  "operating_cash_flow": 50,
+  "total_debt": 100
+ },
+ {
+  "symbol": "ROE.JK",
+  "date": "2026-03-31",
+  "revenue": 110,
+  "earnings": 104,
+  "total_assets": 2400,
+  "total_equity": 1300,
+  "operating_cash_flow": 50,
+  "total_debt": 100
+ },
+ {
+  "symbol": "ROE.JK",
+  "date": "2026-06-30",
+  "revenue": 115,
+  "earnings": 105,
+  "total_assets": 2600,
+  "total_equity": 1500,
+  "operating_cash_flow": 50,
+  "total_debt": 100
+ }
+]

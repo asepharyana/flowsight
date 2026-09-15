@@ -1,0 +1,16 @@
+{
+ "top_gainers": {
+  "1d": [
+   {
+    "name": "Bank Central Asia",
+    "symbol": "BBCA.JK",
+    "price_change": 0.032,
+    "last_close_price": 9950,
+    "latest_close_date": "2026-09-11"
+   }
+  ]
+ },
+ "top_losers": {
+  "1d": []
+ }
+}

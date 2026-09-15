@@ -12,3 +12,4 @@ Spec-driven source of truth. Code follows these docs; docs change before code.
 | [AGENT-SPECS.md](AGENT-SPECS.md) | 7 agent contracts: inputs, processing steps, outputs, verification fixtures |
 | [DATA-MODEL.md](DATA-MODEL.md) | Table schemas, indexes, retention, seed strategy |
 | [API.md](API.md) | Backend route specs: request/response shapes, errors, auth |
+| [DEMO-DECK.md](DEMO-DECK.md) | Offline demo narrative: briefing → radar → report → interrogation |

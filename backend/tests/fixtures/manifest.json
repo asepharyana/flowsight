@@ -1,0 +1,161 @@
+{
+ "week": "2026-09-07..2026-09-11",
+ "snapshots": [
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "broker-summary-top",
+   "file": "broker_summary_top_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "foreign-flow",
+   "file": "foreign_flow_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "daily",
+   "file": "daily_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "news",
+   "file": "news_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "filings",
+   "file": "filings_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "company-report",
+   "file": "company_report_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "financials-quarterly",
+   "file": "quarterly_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "corporate-actions",
+   "file": "corp_actions_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-10",
+   "source": "quarterly-dates",
+   "file": "quarterly_dates_bbca.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "brokers-registry",
+   "file": "brokers_registry.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "brokers-top",
+   "file": "brokers_top_idx.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "sector-flow",
+   "file": "sector_flow_idx.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "top-changes",
+   "file": "top_changes_idx.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "free-float",
+   "file": "free_float_idx.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "close",
+   "file": "close_idx.json"
+  },
+  {
+   "ticker": "TLKM",
+   "date": "2026-09-10",
+   "source": "suspensions",
+   "file": "suspensions_tlkm.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "subsector-valuation",
+   "file": "subsector_banks.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "segments",
+   "file": "segments_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "listing-performance",
+   "file": "listing_bbca.json"
+  },
+  {
+   "ticker": "BBCA",
+   "date": "2026-09-11",
+   "source": "quarterly-dates",
+   "file": "quarterly_ticker_bbca.json"
+  },
+  {
+   "ticker": "IDX",
+   "date": "2026-09-11",
+   "source": "most-traded",
+   "file": "most_traded_idx.json"
+  },
+  {
+   "ticker": "ROE",
+   "date": "2026-09-11",
+   "source": "financials-quarterly",
+   "file": "quarterly_roe.json"
+  },
+  {
+   "ticker": "ROE",
+   "date": "2026-09-11",
+   "source": "company-report",
+   "file": "company_report_roe.json"
+  }
+ ],
+ "watchlist": [
+  "BBCA",
+  "TLKM"
+ ],
+ "routines": [
+  {
+   "user_key": "demo",
+   "type": "morning-briefing",
+   "schedule": "30 7 * * *",
+   "channels": []
+  },
+  {
+   "user_key": "demo",
+   "type": "accumulation-radar",
+   "schedule": "*/30 9-16 * * 1-5",
+   "channels": []
+  }
+ ]
+}

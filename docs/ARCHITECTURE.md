@@ -26,29 +26,28 @@ flowsight/
         smart_money.go broker_intel.go sentiment.go fundamental.go
         technical.go catalyst.go synthesizer.go
       routines/               # 7 routines (see ROUTINES.md)
-        engine.go             # cron dispatch, run recording, delivery
-        briefing.go radar.go reversal.go insider.go earnings.go dividend.go weekly.go
+        engine.go             # cron dispatch, run recording, delivery, SSE publish
+        briefing.go           # R1 briefing + R2 radar + R3 reversal + R4 insider + R5/R6 countdowns + R7 review
       alerts/
         rules.go              # 6 detection rules over snapshots
         evaluate.go           # per-cycle evaluation
         notify.go             # Telegram/Discord webhooks
       reports/
-        builder.go            # 7-section assembly + citations[]
+        report.go             # 7-section assembly + citations[] (returns persisted id)
         render.go             # PDF/HTML/MD/JSON exporters
       api/                    # chi route handlers (see API.md)
-        flow.go screen.go routines.go briefing.go alerts.go
-        report.go watchlist.go portfolio.go accuracy.go chat.go health.go stream.go
+        flow.go screen.go routines.go health.go alerts.go
+        report.go interrogate.go watchlist.go portfolio.go chat.go stream.go
       scheduler/              # robfig/cron wiring (ingestion + routines)
-  web/                        # SolidJS 1.9 + Vite 6 + StyleX
+  web/                        # SolidJS 1.9 + Vite 6 + typed CSS
     src/
       pages/                  # Dashboard, Routines, Alerts, Screener, Portfolio, Report
       components/             # cards, tables, rotation map, correlation matrix
       lib/api.ts              # typed backend client + SSE hooks
-      styles/                 # StyleX tokens + themes
-  tests/
-    fixtures/                 # historical snapshots (one trading week)
-    agents_*_test.go          # per-agent fixture tests
-    rules_test.go report_test.go budget_test.go
+      styles/                 # CSS tokens + themes (tokens.css)
+  backend/tests/
+    fixtures/                 # historical snapshots (one trading week, manifest.json)
+    seed + agents + rules + evaluate + api + routines + client + accuracy tests
 ```
 
 ## Conventions

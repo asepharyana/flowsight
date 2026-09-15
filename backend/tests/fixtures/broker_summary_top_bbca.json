@@ -1,0 +1,39 @@
+{
+ "symbol": "BBCA.JK",
+ "start": "2026-09-07",
+ "end": "2026-09-11",
+ "origin": "all",
+ "cohort": "all",
+ "top_buyers": [
+  {
+   "rank": 1,
+   "broker_code": "MG",
+   "net_idr": 520000000000,
+   "buy_idr": 800000000000,
+   "sell_idr": 280000000000
+  },
+  {
+   "rank": 2,
+   "broker_code": "AK",
+   "net_idr": 410000000000,
+   "buy_idr": 700000000000,
+   "sell_idr": 290000000000
+  },
+  {
+   "rank": 3,
+   "broker_code": "CC",
+   "net_idr": 290000000000,
+   "buy_idr": 500000000000,
+   "sell_idr": 210000000000
+  }
+ ],
+ "top_sellers": [
+  {
+   "rank": 1,
+   "broker_code": "BK",
+   "net_idr": -180000000000,
+   "buy_idr": 200000000000,
+   "sell_idr": 380000000000
+  }
+ ]
+}
