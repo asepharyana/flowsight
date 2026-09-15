@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"sort"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -59,27 +60,54 @@ func (db *DB) migrate() error {
 		if applied > 0 {
 			continue
 		}
-		b, err := migrationsFS.ReadFile(n)
-		if err != nil {
-			return err
-		}
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(string(b)); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("store: migration %s: %w", n, err)
-		}
-		if _, err := tx.Exec(`INSERT INTO schema_migrations(name) VALUES(?)`, n); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-		if err := tx.Commit(); err != nil {
+		if err := db.applyMigration(n); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// applyMigration runs one migration file. A statement that fails only because
+// its effect already exists (duplicate column / object already exists) is
+// tolerated: the DB is treated as already containing that change. Any other
+// error aborts the migration.
+func (db *DB) applyMigration(n string) error {
+	b, err := migrationsFS.ReadFile(n)
+	if err != nil {
+		return err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(string(b)); err != nil {
+		_ = tx.Rollback()
+		if isAlreadyExistsErr(err) {
+			if _, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations(name) VALUES(?)`, n); err != nil {
+				return err
+			}
+			return nil
+		}
+		return fmt.Errorf("store: migration %s: %w", n, err)
+	}
+	if _, err := tx.Exec(`INSERT INTO schema_migrations(name) VALUES(?)`, n); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+// isAlreadyExistsErr reports SQLite "already exists" errors: duplicate column
+// or duplicate table/index. Matched on message text because modernc sqlite
+// surfaces them as generic error code 1.
+func isAlreadyExistsErr(err error) bool {
+	msg := err.Error()
+	for _, s := range []string{"duplicate column name", "already exists"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // Meta helpers persist incremental cursors (quarterly_since, news_since,
