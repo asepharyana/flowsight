@@ -1,11 +1,16 @@
 import { createSignal, For, Show } from "solid-js";
 import { api, type ScreenRow } from "../lib/api";
 import { Citations } from "../components/Citations";
-import { BreakdownBars, EmptyState, RecBadge, Skeleton } from "../components/ui";
+import { BreakdownBars, EmptyState, PageHead, RecBadge } from "../components/ui";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Skeleton } from "../components/ui/skeleton";
+import { TextField, TextFieldInput } from "../components/ui/text-field";
+import { Switch, SwitchControl, SwitchLabel, SwitchThumb } from "../components/ui/switch";
 
 const SAVED_KEY = "fs-saved-screeners";
 
-// scoreOf extracts a -100..+100 composite from the row breakdown for the badge.
 function scoreOf(r: ScreenRow): number {
   const b = r.breakdown as Record<string, unknown>;
   for (const k of ["composite", "score", "broker_score", "broker"]) {
@@ -49,55 +54,73 @@ export default function Screener() {
     setSaved(all);
   }
   return (
-    <div>
-      <div class="fs-page-head"><h1>Institutional Screener</h1><p class="fs-muted">Rank tickers by smart-money signals.</p></div>
-      <div class="fs-card">
-        <div class="fs-row">
-          <select class="fs-input" value={mode()} onChange={(e) => setMode(e.currentTarget.value as "where" | "q")}>
-            <option value="q">Natural language (q)</option>
-            <option value="where">SQL-like (where)</option>
-          </select>
-          <input class="fs-input" placeholder={mode() === "q" ? "e.g. large banks with foreign inflow" : "e.g. market_cap > 10T"} value={q()} onInput={(e) => setQ(e.currentTarget.value)} style={{ flex: 1, "min-width": "200px" }} />
-          <button class="fs-btn" onClick={run} disabled={busy()}>{busy() ? " screening…" : "Screen"}</button>
-        </div>
-        <div class="fs-row" style={{ "margin-top": "10px" }}>
-          <label class="fs-muted">broker ≥ <input class="fs-input" type="number" value={brokerMin()} onInput={(e) => setBrokerMin(Number(e.currentTarget.value))} style={{ width: "80px" }} /></label>
-          <label class="fs-muted"><input type="checkbox" checked={foreignOnly()} onChange={(e) => setForeignOnly(e.currentTarget.checked)} /> foreign inflow</label>
-          <label class="fs-muted"><input type="checkbox" checked={insiderOnly()} onChange={(e) => setInsiderOnly(e.currentTarget.checked)} /> insider buying</label>
-        </div>
-        <Show when={err()}><p style={{ color: "var(--fs-avoid)" }}>{err()}</p></Show>
-      </div>
-      <Show when={busy()}><div style={{ "margin-top": "14px" }}><Skeleton rows={3} /></div></Show>
+    <div class="space-y-4">
+      <PageHead title="Institutional Screener" sub="Rank tickers by smart-money signals." />
+      <Card>
+        <CardContent class="space-y-3 pt-6">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex gap-1 rounded-md bg-muted p-1">
+              <Button size="sm" variant={mode() === "q" ? "default" : "ghost"} onClick={() => setMode("q")}>Natural language</Button>
+              <Button size="sm" variant={mode() === "where" ? "default" : "ghost"} onClick={() => setMode("where")}>SQL-like</Button>
+            </div>
+            <TextField class="min-w-52 flex-1">
+              <TextFieldInput placeholder={mode() === "q" ? "e.g. large banks with foreign inflow" : "e.g. market_cap > 10T"} value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
+            </TextField>
+            <Button onClick={run} disabled={busy()}>{busy() ? "Screening…" : "Screen"}</Button>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 text-sm">
+            <label class="flex items-center gap-2 text-muted-foreground">broker ≥
+              <TextField class="w-20"><TextFieldInput type="number" value={brokerMin()} onInput={(e) => setBrokerMin(Number(e.currentTarget.value))} /></TextField>
+            </label>
+            <Switch checked={foreignOnly()} onChange={setForeignOnly}>
+              <SwitchControl><SwitchThumb /></SwitchControl>
+              <SwitchLabel>foreign inflow</SwitchLabel>
+            </Switch>
+            <Switch checked={insiderOnly()} onChange={setInsiderOnly}>
+              <SwitchControl><SwitchThumb /></SwitchControl>
+              <SwitchLabel>insider buying</SwitchLabel>
+            </Switch>
+          </div>
+          <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
+        </CardContent>
+      </Card>
+      <Show when={busy()}><div class="space-y-2"><Skeleton class="h-24 w-full" /><Skeleton class="h-24 w-full" /></div></Show>
       <Show when={ran() && !busy()}>
-        <Show when={rows().length} fallback={<div style={{ "margin-top": "14px" }}><EmptyState icon="🔍" title="No matches" hint="Loosen the filters and try again." /></div>}>
-          <div class="fs-grid" style={{ "margin-top": "14px" }}>
+        <Show when={rows().length} fallback={<EmptyState icon="🔍" title="No matches" hint="Loosen the filters and try again." />}>
+          <div class="grid gap-4 md:grid-cols-2">
             <For each={rows()}>
               {(r) => (
-                <div class="fs-card">
-                  <div class="fs-row" style={{ "justify-content": "space-between" }}>
-                    <strong><a href={`/report/${r.symbol}`}>{r.symbol}</a></strong>
-                    <span class="fs-muted">{r.composite.toFixed(1)}</span>
-                  </div>
-                  <div style={{ "margin": "8px 0" }}><BreakdownBars breakdown={r.breakdown as Record<string, unknown>} /></div>
-                  <Citations items={r.citations} />
-                  <Show when={scoreOf(r) !== 0}><div style={{ "margin-top": "6px" }}><RecBadge rec={scoreOf(r) >= 40 ? "BUY" : scoreOf(r) <= -40 ? "AVOID" : "HOLD"} /></div></Show>
-                </div>
+                <Card>
+                  <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <a class="font-bold text-primary hover:underline" href={`/report/${r.symbol}`}>{r.symbol}</a>
+                    <Badge variant="secondary" class="font-mono">{r.composite.toFixed(1)}</Badge>
+                  </CardHeader>
+                  <CardContent class="space-y-2">
+                    <BreakdownBars breakdown={r.breakdown as Record<string, unknown>} />
+                    <Citations items={r.citations} />
+                    <Show when={scoreOf(r) !== 0}><RecBadge rec={scoreOf(r) >= 40 ? "BUY" : scoreOf(r) <= -40 ? "AVOID" : "HOLD"} /></Show>
+                  </CardContent>
+                </Card>
               )}
             </For>
           </div>
         </Show>
       </Show>
       <Show when={!ran() && !busy()}>
-        <div style={{ "margin-top": "14px" }}><EmptyState icon="🔍" title="Run a screen" hint="Ranked rows with per-signal bars appear here." /></div>
+        <EmptyState icon="🔍" title="Run a screen" hint="Ranked rows with per-signal bars appear here." />
       </Show>
-      <div class="fs-card" style={{ "margin-top": "14px" }}>
-        <h3>Saved screeners</h3>
-        <div class="fs-row">
-          <input class="fs-input" placeholder="name" value={sname()} onInput={(e) => setSname(e.currentTarget.value)} style={{ width: "140px" }} />
-          <button class="fs-btn ghost" onClick={save}>Save current</button>
-        </div>
-        <ul><For each={Object.entries(saved())}>{([n, query]) => <li><button class="fs-btn ghost" onClick={() => { setQ(query); run(); }}>{n}</button> <span class="fs-muted">{query.slice(0, 60)}</span></li>}</For></ul>
-      </div>
+      <Card>
+        <CardHeader><CardTitle>Saved screeners</CardTitle></CardHeader>
+        <CardContent class="space-y-3">
+          <div class="flex gap-2">
+            <TextField class="w-36"><TextFieldInput placeholder="name" value={sname()} onInput={(e) => setSname(e.currentTarget.value)} /></TextField>
+            <Button variant="outline" onClick={save}>Save current</Button>
+          </div>
+          <ul class="space-y-1 text-sm">
+            <For each={Object.entries(saved())}>{([n, query]) => <li><Button variant="ghost" size="sm" onClick={() => { setQ(query); run(); }}>{n}</Button> <span class="text-muted-foreground">{query.slice(0, 60)}</span></li>}</For>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

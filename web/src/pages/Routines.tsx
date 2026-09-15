@@ -1,7 +1,11 @@
 import { createResource, createSignal, For, Show } from "solid-js";
 import { api } from "../lib/api";
 import { Citations } from "../components/Citations";
-import { EmptyState } from "../components/ui";
+import { EmptyState, PageHead } from "../components/ui";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { TextField, TextFieldInput } from "../components/ui/text-field";
 
 const TYPES = ["morning-briefing", "accumulation-radar", "foreign-reversal", "insider-tape", "earnings-countdown", "dividend-calendar", "weekend-review"];
 
@@ -12,7 +16,6 @@ export default function Routines() {
   const [schedule, setSchedule] = createSignal("");
   const [channels, setChannels] = createSignal("");
   const [busy, setBusy] = createSignal(false);
-  const [runNowId, setRunNowId] = createSignal<number | null>(null);
   const [briefing] = createResource(() => api.briefing().catch(() => null));
   async function subscribe() {
     setBusy(true);
@@ -34,54 +37,63 @@ export default function Routines() {
     refetch();
   }
   return (
-    <div>
-      <div class="fs-page-head"><h1>Routine Manager</h1><p class="fs-muted">Scheduled deliveries with citations.</p></div>
-      <div class="fs-card">
-        <h3>Subscribe</h3>
-        <div class="fs-row">
-          <select class="fs-input" value={type_()} onChange={(e) => setType(e.currentTarget.value)}>
-            <For each={TYPES}>{(t) => <option value={t}>{t}</option>}</For>
-          </select>
-          <input class="fs-input" placeholder="schedule cron (blank = default)" value={schedule()} onInput={(e) => setSchedule(e.currentTarget.value)} style={{ width: "240px" }} />
-          <input class="fs-input" placeholder="channels, comma-separated" value={channels()} onInput={(e) => setChannels(e.currentTarget.value)} style={{ width: "200px" }} />
-          <button class="fs-btn" onClick={subscribe} disabled={busy()}>Subscribe</button>
-        </div>
-      </div>
+    <div class="space-y-4">
+      <PageHead title="Routine Manager" sub="Scheduled deliveries with citations." />
+      <Card>
+        <CardHeader><CardTitle>Subscribe</CardTitle></CardHeader>
+        <CardContent class="flex flex-wrap gap-2">
+          <TextField class="w-52">
+            <select class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={type_()} onChange={(e) => setType(e.currentTarget.value)}>
+              <For each={TYPES}>{(t) => <option value={t}>{t}</option>}</For>
+            </select>
+          </TextField>
+          <TextField class="w-60"><TextFieldInput placeholder="schedule cron (blank = default)" value={schedule()} onInput={(e) => setSchedule(e.currentTarget.value)} /></TextField>
+          <TextField class="w-52"><TextFieldInput placeholder="channels, comma-separated" value={channels()} onInput={(e) => setChannels(e.currentTarget.value)} /></TextField>
+          <Button onClick={subscribe} disabled={busy()}>Subscribe</Button>
+        </CardContent>
+      </Card>
       <Show when={(data()?.routines || []).length} fallback={
-        <div style={{ "margin-top": "14px" }}><EmptyState icon="🗓️" title="No routines yet" hint="Subscribe above — the morning briefing runs 07:30 WIB daily." /></div>
+        <EmptyState icon="🗓️" title="No routines yet" hint="Subscribe above — the morning briefing runs 07:30 WIB daily." />
       }>
-        <div class="fs-grid" style={{ "margin-top": "14px" }}>
+        <div class="grid gap-4 md:grid-cols-2">
           <For each={data()?.routines || []}>
             {(r) => (
-              <div class="fs-card">
-                <div class="fs-row" style={{ "justify-content": "space-between" }}>
-                  <strong>{r.type}</strong>
-                  <span class={`fs-badge ${r.enabled ? "buy" : "info"}`}>{r.enabled ? "on" : "off"}</span>
-                </div>
-                <p class="fs-muted">{r.schedule_cron}</p>
-                <div class="fs-row">
-                  <button class="fs-btn ghost" onClick={() => toggle(r.id, r.enabled)}>{r.enabled ? "Disable" : "Enable"}</button>
-                  <button class="fs-btn ghost" disabled={runNowId() === r.id}>Run</button>
-                  <button class="fs-btn danger" onClick={() => del(r.id)}>Delete</button>
-                </div>
-              </div>
+              <Card>
+                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle class="text-base">{r.type}</CardTitle>
+                  <Badge variant={r.enabled ? "success" : "secondary"}>{r.enabled ? "on" : "off"}</Badge>
+                </CardHeader>
+                <CardContent class="space-y-2">
+                  <p class="font-mono text-xs text-muted-foreground">{r.schedule_cron}</p>
+                  <div class="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => toggle(r.id, r.enabled)}>{r.enabled ? "Disable" : "Enable"}</Button>
+                    <Button variant="destructive" size="sm" onClick={() => del(r.id)}>Delete</Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </For>
         </div>
       </Show>
-      <div class="fs-grid" style={{ "margin-top": "14px" }}>
-        <div class="fs-card">
-          <h3>Latest briefing</h3>
-          <Show when={briefing()} fallback={<p class="fs-muted">No briefing yet — it generates after the first morning-briefing run.</p>}>
-            <pre class="fs-muted" style={{ "white-space": "pre-wrap" }}>{(briefing() as { payload: string })?.payload?.slice(0, 800)}</pre>
-            <Citations items={(briefing() as { citations: string })?.citations} />
-          </Show>
-        </div>
-        <div class="fs-card">
-          <h3>Run history</h3>
-          <button class="fs-btn ghost" onClick={() => refetchRuns()}>Refresh</button>
-          <ul><For each={runs() || []}>{(r) => <li class="fs-muted">{String(r.started_at)} — {String(r.status)}</li>}</For></ul>
-        </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Latest briefing</CardTitle></CardHeader>
+          <CardContent>
+            <Show when={briefing()} fallback={<p class="text-sm text-muted-foreground">No briefing yet — it generates after the first morning-briefing run.</p>}>
+              <pre class="whitespace-pre-wrap text-sm text-muted-foreground">{(briefing() as { payload: string })?.payload?.slice(0, 800)}</pre>
+              <div class="mt-2"><Citations items={(briefing() as { citations: string })?.citations} /></div>
+            </Show>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle>Run history</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => refetchRuns()}>Refresh</Button>
+          </CardHeader>
+          <CardContent>
+            <ul class="space-y-1 text-sm text-muted-foreground"><For each={runs() || []}>{(r) => <li>{String(r.started_at)} — {String(r.status)}</li>}</For></ul>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

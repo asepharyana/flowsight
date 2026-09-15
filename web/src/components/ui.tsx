@@ -1,66 +1,88 @@
-import { For, Show, type JSX } from "solid-js";
+import { For } from "solid-js";
+import type { Citation } from "../lib/api";
+import { Badge } from "./ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-// Shared building blocks: StatCard, EmptyState, Badge, SignalBar, Skeleton.
-
-export function StatCard(props: { title: string; value: string; sub?: string; children?: JSX.Element }) {
+export function Citations(props: { items?: Citation[] | string }) {
+  const list = (): Citation[] => {
+    if (!props.items) return [];
+    if (typeof props.items === "string") {
+      try { return JSON.parse(props.items); } catch { return []; }
+    }
+    return props.items;
+  };
   return (
-    <div class="fs-card">
-      <h3>{props.title}</h3>
-      <p class="fs-stat">{props.value}</p>
-      <Show when={props.sub}><p class="fs-muted" style={{ margin: 0 }}>{props.sub}</p></Show>
-      {props.children}
-    </div>
-  );
-}
-
-export function EmptyState(props: { icon: string; title: string; hint?: string; action?: JSX.Element }) {
-  return (
-    <div class="fs-card fs-empty">
-      <div class="big">{props.icon}</div>
-      <strong>{props.title}</strong>
-      <Show when={props.hint}><p class="fs-muted">{props.hint}</p></Show>
-      <Show when={props.action}><div style={{ "margin-top": "10px" }}>{props.action}</div></Show>
-    </div>
-  );
-}
-
-export function Skeleton(props: { rows?: number }) {
-  const n = props.rows ?? 3;
-  return (
-    <div class="fs-stack">
-      <For each={Array.from({ length: n })}>{() => <div class="fs-sk" style={{ height: "56px" }} />}</For>
-    </div>
+    <span class="inline-flex flex-wrap gap-1">
+      <For each={list()}>
+        {(c) => (
+          <Tooltip>
+            <TooltipTrigger>
+              <Badge variant={c.stale ? "secondary" : "outline"} class={c.stale ? "opacity-70" : ""}>
+                {c.endpoint} {c.ticker || ""} @ {(c.snapshot_at || "").slice(0, 10)}{c.stale ? " · stale" : ""}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>{c.endpoint} @ {c.snapshot_at}{c.stale ? " (stale)" : ""}</TooltipContent>
+          </Tooltip>
+        )}
+      </For>
+    </span>
   );
 }
 
 export function RecBadge(props: { rec: string }) {
-  const cls = props.rec === "BUY" ? "buy" : props.rec === "HOLD" ? "hold" : "avoid";
-  return <span class={`fs-badge ${cls}`}>{props.rec}</span>;
+  const v = () =>
+    /buy/i.test(props.rec) ? { variant: "success" as const, icon: "▲" }
+    : /avoid|sell/i.test(props.rec) ? { variant: "error" as const, icon: "▼" }
+    : { variant: "warning" as const, icon: "●" };
+  return <Badge variant={v().variant}>{v().icon} {props.rec}</Badge>;
 }
 
-// SignalBar renders one -100..+100 signal as a labeled bar.
-export function SignalBar(props: { label: string; value: number }) {
-  const v = Math.max(-100, Math.min(100, props.value));
-  const left = v < 0 ? `${50 + v / 2}%` : "50%";
-  const width = `${Math.abs(v) / 2}%`;
-  const cls = v < 0 ? "neg" : v > 0 ? "pos" : "";
+export function BreakdownBars(props: { breakdown: Record<string, unknown> }) {
+  const entries = () => Object.entries(props.breakdown)
+    .filter(([, v]) => typeof v === "number")
+    .sort((a, b) => Math.abs(b[1] as number) - Math.abs(a[1] as number))
+    .slice(0, 6);
   return (
-    <div class="fs-sig">
-      <span class="fs-muted">{props.label}</span>
-      <span class="bar"><i class={cls} style={{ left, width }} /></span>
-      <b>{v}</b>
+    <div class="space-y-1.5">
+      <For each={entries()}>
+        {([k, v]) => {
+          const n = v as number;
+          const pct = Math.min(100, Math.abs(n));
+          return (
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-24 shrink-0 truncate text-muted-foreground">{k}</span>
+              <div class="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                <div
+                  class="h-full rounded-full"
+                  classList={{ "bg-success": n >= 0, "bg-error": n < 0 }}
+                  style={{ width: `${pct}%`, "margin-left": n < 0 ? "auto" : undefined }}
+                />
+              </div>
+              <span class="w-12 shrink-0 text-right font-mono">{n.toFixed(1)}</span>
+            </div>
+          );
+        }}
+      </For>
     </div>
   );
 }
 
-// BreakdownBars renders a screen/report signal breakdown map as bars.
-// Unknown numeric fields are shown; booleans/strings are skipped except flags.
-export function BreakdownBars(props: { breakdown: Record<string, unknown> }) {
-  const entries = () =>
-    Object.entries(props.breakdown || {}).filter(([, v]) => typeof v === "number") as [string, number][];
+export function PageHead(props: { title: string; sub?: string }) {
   return (
-    <Show when={entries().length} fallback={<span class="fs-muted">no signals</span>}>
-      <For each={entries()}>{([k, v]) => <SignalBar label={k.replace(/_/g, " ")} value={v} />}</For>
-    </Show>
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">{props.title}</h1>
+      {props.sub ? <p class="text-sm text-muted-foreground">{props.sub}</p> : null}
+    </div>
+  );
+}
+
+export function EmptyState(props: { icon: string; title: string; hint?: string; action?: import("solid-js").JSX.Element }) {
+  return (
+    <div class="flex flex-col items-center gap-1 rounded-lg border border-dashed px-6 py-10 text-center">
+      <div class="text-3xl">{props.icon}</div>
+      <p class="font-medium">{props.title}</p>
+      {props.hint ? <p class="text-sm text-muted-foreground">{props.hint}</p> : null}
+      {props.action}
+    </div>
   );
 }
