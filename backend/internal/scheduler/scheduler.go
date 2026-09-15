@@ -389,7 +389,8 @@ func (s *Scheduler) rotateDepth(ctx context.Context) error {
 	if start >= len(missing) {
 		start = 0
 	}
-	batch := 10 // 3 credits/ticker = 30 credits; leaves headroom within the cap
+	batch := 30 // 3 credits/ticker = 90 credits; universe sweep (27) runs once
+	// per day so a normal cycle stays within the 120 cap.
 	for i := 0; i < batch; i++ {
 		t := missing[(start+i)%len(missing)]
 		if err := s.tickerDepth(ctx, t); err != nil {
