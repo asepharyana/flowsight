@@ -22,6 +22,7 @@ export interface ScreenRow { symbol: string; name: string; composite: number; br
 export interface Routine { id: number; user_key: string; type: string; schedule_cron: string; channels_json?: string; channels?: string[]; enabled: boolean; last_run?: unknown }
 export interface AlertItem { id: number; user_key: string; name: string; rule_json: string; channels_json: string; last_fired: string }
 export interface ReportPayload { ticker: string; generated_at: string; sections: { name: string; body: string; citations: Citation[] }[]; synthesis: { recommendation: string; conviction: number; thesis: string; position_pct: number; conflict: boolean; conflict_note?: string }; agent_scores: unknown[]; citations: Citation[] }
+export interface AuthUser { id: number; email: string; name: string; avatar_url: string; user_key: string; google_configured: boolean }
 export const api = {
   health: (force = false) => req<Health>(`/api/health${force ? "?force=1" : ""}`),
   flowSummary: () => req<FlowSummary>("/api/flow/summary"),
@@ -49,7 +50,9 @@ export const api = {
   removeWatch: (ticker: string) => req<unknown>(`/api/watchlist/${ticker}`, { method: "DELETE" }),
   risk: () => req<{ concentration: { ticker: string; sector: string; weight: number }[]; correlation: Record<string, Record<string, number>>; beta: number; warnings: string[] }>("/api/portfolio/risk"),
   accuracy: () => req<{ agents: { agent: string; calls: number; resolved: number; hits: number; hit_rate: number }[] }>("/api/accuracy"),
-  chat: (message: string) => req<{ answer: string }>("/api/chat", { method: "POST", body: JSON.stringify({ message }) }),
+  chat: (message: string) => req<{ answer: string }>(`/api/chat`, { method: "POST", body: JSON.stringify({ message }) }),
+  me: () => req<{ user: AuthUser }>(`/api/auth/me`),
+  logout: () => req<{ ok: boolean }>(`/api/auth/logout`, { method: "POST" }),
 };
 // SSE hook helper: subscribe to channels agents|alerts|activity.
 export function subscribeSSE(onEvent: (channel: string, data: string) => void): () => void {
