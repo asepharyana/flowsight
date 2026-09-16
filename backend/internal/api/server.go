@@ -69,8 +69,13 @@ func (s *Server) Router() http.Handler {
 		r.Get("/auth/callback", s.AuthCallback)
 		r.Get("/auth/me", s.AuthMe)
 		r.Post("/auth/logout", s.AuthLogout)
-		r.Post("/auth/signup", s.AuthSignup)
-		r.Post("/auth/login", s.AuthLogin)
+		// Rate-limited auth endpoints: max 10 per IP per 60s.
+		authRL := newIPRateLimiter(10, 60*time.Second)
+		r.Group(func(r chi.Router) {
+			r.Use(func(next http.Handler) http.Handler { return s.rateLimitAuth(authRL, next) })
+			r.Post("/auth/signup", s.AuthSignup)
+			r.Post("/auth/login", s.AuthLogin)
+		})
 		r.Get("/version", s.Version)
 		// Publik baca: dashboard bisa dibuka tanpa login. Fitur + filter di bawah
 		// wajib login (session cookie, tanpa demo bypass).

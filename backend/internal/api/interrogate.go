@@ -64,7 +64,7 @@ func (s *Server) loadReport(ticker string, id int64, userKey string) (string, st
 		}
 		return p, c, at, rid, nil
 	}
-	p, c, at, err := s.DB.LatestReport(ticker)
+	p, c, at, err := s.DB.LatestReportForUser(ticker, userKey)
 	if err != nil {
 		return "", "", "", 0, err
 	}

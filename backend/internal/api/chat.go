@@ -41,12 +41,17 @@ func (s *Server) Chat(w http.ResponseWriter, r *http.Request) {
 		}
 		citesRaw = cites
 	} else {
-		// Unscoped: ground on the latest briefing + watchlist.
-		_, payload, cites, _, err := s.DB.LatestBriefing()
-		if err != nil {
-			ground = "no briefing or report data yet"
+		// Unscoped: ground on the caller's own briefing + watchlist (never the
+		// global briefing, which may embed another user's watchlist numbers).
+		uk := s.userKey(r)
+		_, gPayload, gCites, _, gErr := s.DB.LatestBriefing()
+		if p, cc, err := s.Engine.BriefingFor(r.Context(), uk); err == nil {
+			ccJSON, _ := json.Marshal(cc)
+			ground, citesRaw = p, string(ccJSON)
+		} else if gErr == nil {
+			ground, citesRaw = gPayload, gCites
 		} else {
-			ground, citesRaw = payload, cites
+			ground = "no briefing or report data yet"
 		}
 	}
 	answer := "Based on stored data: " + head(ground, 600)

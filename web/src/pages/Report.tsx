@@ -28,13 +28,18 @@ function ReportInner() {
   // Refetch when the ticker param changes (ReportInner stays mounted
   // because Gate wraps it, but params.ticker is reactive).
   createEffect(on(() => params.ticker, () => load()));
-  async function exportMd() { setMd(await api.reportMd(params.ticker)); }
+  async function exportMd() {
+    try { setMd(await api.reportMd(params.ticker)); }
+    catch (e) { setErr(String(e)); }
+  }
   async function ask() {
     if (!question().trim()) return;
     setAsking(true);
     try {
       const r = await api.interrogate(params.ticker, question());
       setAnswer(r.answer);
+    } catch (e) {
+      setErr(String(e));
     } finally { setAsking(false); }
   }
   function dl(url: string, name: string) {
@@ -75,15 +80,21 @@ function ReportInner() {
           <CardContent class="flex flex-wrap gap-2">
             <Button variant="outline" onClick={exportMd}>Markdown</Button>
             <Button variant="outline" onClick={async () => {
-              const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=html`, { method: "POST", credentials: "same-origin" });
-              if (r.ok) dl(URL.createObjectURL(new Blob([await r.text()], { type: "text/html" })), `${params.ticker}-report.html`);
+              try {
+                const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=html`, { method: "POST", credentials: "same-origin" });
+                if (!r.ok) { setErr(`HTML export gagal: HTTP ${r.status}`); return; }
+                dl(URL.createObjectURL(new Blob([await r.text()], { type: "text/html" })), `${params.ticker}-report.html`);
+              } catch (e) { setErr(String(e)); }
             }}>HTML</Button>
             <Button variant="outline" onClick={() => {
               dl(URL.createObjectURL(new Blob([JSON.stringify(rep(), null, 1)], { type: "application/json" })), `${params.ticker}-report.json`);
             }}>JSON</Button>
             <Button variant="outline" onClick={async () => {
-              const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=pdf`, { method: "POST", credentials: "same-origin" });
-              if (r.ok) dl(URL.createObjectURL(await r.blob()), `${params.ticker}-report.pdf`);
+              try {
+                const r = await fetch(`/api/report/${encodeURIComponent(params.ticker)}?format=pdf`, { method: "POST", credentials: "same-origin" });
+                if (!r.ok) { setErr(`PDF export gagal: HTTP ${r.status}`); return; }
+                dl(URL.createObjectURL(await r.blob()), `${params.ticker}-report.pdf`);
+              } catch (e) { setErr(String(e)); }
             }}>PDF</Button>
           </CardContent>
         </Card>

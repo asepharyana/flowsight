@@ -33,6 +33,7 @@ function AlertsInner() {
     setBusy(true);
     try {
       await api.createAlert({ name: tpl().label, rule: tpl().rule, channels: channels().split(",").map((c) => c.trim()).filter(Boolean) });
+      setChannels("");
       refetch();
     } catch (e) { setErr(String(e)); }
     finally { setBusy(false); }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -401,6 +402,29 @@ func (db *DB) RunHistory(routineID int64, limit int, userKey ...string) ([]map[s
 	return out, rows.Err()
 }
 
+// LastRunsByRoutine returns the single latest run per routine for a user —
+// used by ListRoutines to avoid an N+1 query per routine row.
+func (db *DB) LastRunsByRoutine(userKey string) (map[int64]map[string]any, error) {
+	rows, err := q(db, `SELECT routine_id, started_at, status
+		FROM routine_runs WHERE user_key=?
+		AND id IN (SELECT MAX(id) FROM routine_runs WHERE user_key=? GROUP BY routine_id)`,
+		userKey, userKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]map[string]any{}
+	for rows.Next() {
+		var rid int64
+		var started, status string
+		if err := rows.Scan(&rid, &started, &status); err != nil {
+			return nil, err
+		}
+		out[rid] = map[string]any{"started_at": started, "status": status}
+	}
+	return out, rows.Err()
+}
+
 // Alerts.
 
 // Alert is one user rule row.
@@ -710,7 +734,16 @@ func (db *DB) ListReports(ticker string, limit int) ([]map[string]any, error) {
 	return out, rows.Err()
 }
 
-// LatestReport returns the newest report payload for a ticker.
+// LatestReportForUser returns the newest report payload for a ticker scoped
+// to the calling user (IDOR fix: never leak other users' reports).
+func (db *DB) LatestReportForUser(ticker, userKey string) (payload, cites, at string, err error) {
+	err = db.QueryRow(`SELECT payload_json, citations_json, generated_at FROM reports
+		WHERE ticker=? AND user_key=? ORDER BY id DESC LIMIT 1`, ticker, userKey).Scan(&payload, &cites, &at)
+	return payload, cites, at, err
+}
+
+// LatestReport returns the newest report payload for a ticker (global —
+// used only where user scoping is not required, e.g. internal reads).
 func (db *DB) LatestReport(ticker string) (payload, cites, at string, err error) {
 	err = db.QueryRow(`SELECT payload_json, citations_json, generated_at FROM reports
 		WHERE ticker=? ORDER BY id DESC LIMIT 1`, ticker).Scan(&payload, &cites, &at)
@@ -852,28 +885,48 @@ func (db *DB) PruneSnapshots(cutoff string) (int64, error) {
 
 // Daily volumes for technical/volume rules.
 
-// DailyVolumes returns date-ordered volumes for a ticker from snapshots.
+// DailyVolumes returns date-ordered volumes for a ticker from snapshots,
+// deduped by bar date (each snapshot row stores a multi-day window, so a
+// naive LIMIT over rows massively duplicates dates and skews volume-anomaly
+// math). Returns the newest `limit` distinct trading days, oldest-first.
 func (db *DB) DailyVolumes(ticker string, limit int) ([]float64, []string, error) {
+	// Pull extra rows (each holds up to 30 bars) and dedupe by bar date.
 	rows, err := db.Query(`SELECT date, payload_json FROM snapshots
-		WHERE ticker=? AND source='daily' ORDER BY date DESC LIMIT ?`, ticker, limit)
+		WHERE ticker=? AND source='daily' ORDER BY date DESC LIMIT ?`, ticker, 200)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer rows.Close()
-	var vols []float64
-	var dates []string
+	byDate := map[string]float64{}
+	seen := map[string]bool{}
+	var dateOrder []string
 	for rows.Next() {
 		var d, p string
 		if err := rows.Scan(&d, &p); err != nil {
 			return nil, nil, err
 		}
 		for _, b := range parseDailyBars(p, d) {
-			if b.Volume > 0 {
-				vols, dates = append(vols, b.Volume), append(dates, b.Date)
+			if b.Volume <= 0 || seen[b.Date] {
+				continue
 			}
+			seen[b.Date] = true
+			byDate[b.Date] = b.Volume
+			dateOrder = append(dateOrder, b.Date)
 		}
 	}
-	return vols, dates, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	// dateOrder is newest-first from the DESC scan; reverse for ascending.
+	sort.Strings(dateOrder)
+	if len(dateOrder) > limit {
+		dateOrder = dateOrder[len(dateOrder)-limit:]
+	}
+	vols := make([]float64, 0, len(dateOrder))
+	for _, d := range dateOrder {
+		vols = append(vols, byDate[d])
+	}
+	return vols, dateOrder, nil
 }
 
 // LatestClose returns the most recent close for a ticker.
@@ -1055,17 +1108,17 @@ func (db *DB) UpdateDestination(id int64, userKey string, label *string, enabled
 
 // GetDestination returns one push target owned by the user, or nil.
 func (db *DB) GetDestination(id int64, userKey string) (*Destination, error) {
-	all, err := db.ListDestinations(userKey)
+	var d Destination
+	err := db.QueryRow(`SELECT id, user_key, kind, label, bot_token, chat_id, webhook_url, enabled
+		FROM notification_destinations WHERE id=? AND user_key=?`, id, userKey).
+		Scan(&d.ID, &d.UserKey, &d.Kind, &d.Label, &d.BotToken, &d.ChatID, &d.WebhookURL, &d.Enabled)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range all {
-		if d.ID == id {
-			c := d
-			return &c, nil
-		}
-	}
-	return nil, nil
+	return &d, nil
 }
 
 // DeleteDestination removes one push target owned by the user.

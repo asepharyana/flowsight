@@ -28,11 +28,16 @@ func (s *Server) ListRoutines(w http.ResponseWriter, r *http.Request) {
 		LastRun any `json:"last_run"`
 	}
 	out := make([]rowOut, 0, len(rows))
+	lastByRoutine, lerr := s.DB.LastRunsByRoutine(s.userKey(r))
+	if lerr != nil {
+		lastByRoutine = nil
+	}
 	for _, row := range rows {
-		hist, _ := s.DB.RunHistory(row.ID, 1)
 		var last any
-		if len(hist) > 0 {
-			last = hist[0]
+		if lastByRoutine != nil {
+			if v, ok := lastByRoutine[row.ID]; ok {
+				last = v
+			}
 		}
 		out = append(out, rowOut{row, last})
 	}
