@@ -63,6 +63,16 @@ func New(cfg config.Config, db *store.DB, cache *store.Cache, s *sectors.Client)
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger, middleware.Recoverer, middleware.Heartbeat("/ping"))
+	// Cap request bodies (1 MiB) so large POSTs cannot exhaust memory.
+	// JSON bodies here are tiny (auth, screen filters, chat prompts).
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if req.Body != nil && (req.Method == http.MethodPost || req.Method == http.MethodPut || req.Method == http.MethodPatch) {
+				req.Body = http.MaxBytesReader(w, req.Body, 1<<20)
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", s.Health)
 		r.Get("/auth/start", s.AuthStart)

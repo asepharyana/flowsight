@@ -3,6 +3,7 @@ package reports
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"strings"
 	"time"
 
@@ -29,18 +30,21 @@ func (r Report) ToMarkdown() string {
 	return b.String()
 }
 
-// ToHTML renders the report as a standalone page.
+// ToHTML renders the report as a standalone page. All dynamic values are
+// HTML-escaped — bodies come from stored snapshots/LLM and must never be able
+// to inject script into the exported file.
 func (r Report) ToHTML() string {
+	esc := html.EscapeString
 	var b strings.Builder
-	b.WriteString(`<!doctype html><html><head><meta charset="utf-8"><title>`)
-	b.WriteString(r.Ticker + " — FlowSight Report</title></head><body>")
-	fmt.Fprintf(&b, "<h1>%s — FlowSight Report (%s)</h1>", r.Ticker, r.GeneratedAt)
+	b.WriteString("<!doctype html><html><head><meta charset=\"utf-8\"><title>")
+	b.WriteString(esc(r.Ticker) + " — FlowSight Report</title></head><body>")
+	fmt.Fprintf(&b, "<h1>%s — FlowSight Report (%s)</h1>", esc(r.Ticker), esc(r.GeneratedAt))
 	for _, s := range r.Sections {
-		fmt.Fprintf(&b, "<h2>%s</h2><p>%s</p>", s.Name, s.Body)
+		fmt.Fprintf(&b, "<h2>%s</h2><p>%s</p>", esc(s.Name), esc(s.Body))
 		if len(s.Citations) > 0 {
 			b.WriteString("<ul>")
 			for _, c := range s.Citations {
-				fmt.Fprintf(&b, "<li>%s %s @ %s</li>", c.Endpoint, c.Ticker, c.SnapshotAt)
+				fmt.Fprintf(&b, "<li>%s %s @ %s</li>", esc(c.Endpoint), esc(c.Ticker), esc(c.SnapshotAt))
 			}
 			b.WriteString("</ul>")
 		}

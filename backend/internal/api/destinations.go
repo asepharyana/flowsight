@@ -134,7 +134,10 @@ func (s *Server) DeleteDestination(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "ok": true})
 }
 
-// checkDestSecrets validates kind-appropriate secrets.
+// checkDestSecrets validates kind-appropriate secrets. Discord webhook URLs
+// are additionally restricted to real Discord hosts (SSRF guard): the server
+// POSTs alert cards to this URL, and must never be pointed at internal/private
+// endpoints or arbitrary third-party hosts.
 func checkDestSecrets(kind, botToken, chatID, webhookURL string) string {
 	switch kind {
 	case store.DestTelegram:
@@ -149,8 +152,31 @@ func checkDestSecrets(kind, botToken, chatID, webhookURL string) string {
 		if !strings.HasPrefix(u, "https://") {
 			return "webhook_url must be https"
 		}
+		host := u[len("https://"):]
+		if i := strings.IndexAny(host, "/?"); i >= 0 {
+			host = host[:i]
+		}
+		if !discordWebhookHost(host) {
+			return "webhook_url must be a discord.com/app.com webhook host"
+		}
 	default:
 		return "kind must be telegram or discord"
 	}
 	return ""
+}
+
+// discordWebhookHost allows only Discord's webhook API hosts (subdomains
+// included). Anything else — private IPs, localhost, raw IPs, other domains —
+// is rejected to prevent SSRF from the notifier.
+func discordWebhookHost(host string) bool {
+	h := strings.ToLower(strings.TrimSpace(host))
+	if h == "discord.com" || h == "discordapp.com" {
+		return true
+	}
+	for _, suffix := range []string{".discord.com", ".discordapp.com", ".discord.gg"} {
+		if strings.HasSuffix(h, suffix) {
+			return true
+		}
+	}
+	return false
 }

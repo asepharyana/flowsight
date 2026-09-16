@@ -236,13 +236,17 @@ func TestDestinations(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
-	// Discord non-https -> 422.
+	// Discord non-https or non-Discord host -> 422.
 	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "webhook_url": "http://x"})
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, want 422", rec.Code)
 	}
+	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "webhook_url": "https://evil.example/hook"})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("non-discord host must 422, got %d", rec.Code)
+	}
 	// Valid discord create -> 201.
-	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "label": "ops", "webhook_url": "https://discord.example/hook"})
+	rec = doAuth(t, s, "POST", "/api/destinations", map[string]any{"kind": "discord", "label": "ops", "webhook_url": "https://discord.com/api/webhooks/123/abc"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("code = %d, body %s", rec.Code, rec.Body.String())
 	}
