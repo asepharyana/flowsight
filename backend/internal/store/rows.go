@@ -626,9 +626,10 @@ func (db *DB) TickersWithForeign() (map[string]bool, error) {
 // SaveUniverse inserts the full ticker universe from the close sweep.
 // UniverseRow mirrors the CloseRow shape without importing sectors (cycle).
 type UniverseRow struct {
-	Symbol string
-	Close  int64
-	Date   string
+	Symbol      string
+	Close       int64
+	Date        string
+	CompanyName string
 }
 
 func (db *DB) SaveUniverse(rows []UniverseRow) error {
@@ -644,12 +645,41 @@ func (db *DB) SaveUniverse(rows []UniverseRow) error {
 		// Normalize: API returns "BBCA.JK" — strip the suffix so it matches
 		// watchlist/depth keys (BBCA) everywhere.
 		t := strings.TrimSuffix(r.Symbol, ".JK")
-		if _, err := tx.Exec(`INSERT OR IGNORE INTO universe(ticker, close, date) VALUES(?,?,?)`,
-			t, r.Close, r.Date); err != nil {
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO universe(ticker, close, date, company_name) VALUES(?,?,?,?)`,
+			t, r.Close, r.Date, r.CompanyName); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
+}
+
+// CompanyNames returns the company name map for the given tickers (from the
+// universe table). Tickers with no stored name are omitted.
+func (db *DB) CompanyNames(tickers []string) (map[string]string, error) {
+	if len(tickers) == 0 {
+		return map[string]string{}, nil
+	}
+	ph := strings.Repeat("?,", len(tickers))
+	ph = ph[:len(ph)-1]
+	args := make([]any, len(tickers))
+	for i, t := range tickers {
+		args[i] = t
+	}
+	rows, err := db.Query(`SELECT ticker, company_name FROM universe
+		WHERE company_name != '' AND ticker IN (`+ph+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var t, nm string
+		if err := rows.Scan(&t, &nm); err != nil {
+			return nil, err
+		}
+		out[t] = nm
+	}
+	return out, rows.Err()
 }
 
 // AddWatch inserts a ticker (idempotent).

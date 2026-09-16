@@ -80,7 +80,12 @@ function ScreenerInner() {
               return (
                 <Card>
                   <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle class="text-xl font-bold">{s.row.symbol}</CardTitle>
+                    <div>
+                      <CardTitle class="text-xl font-bold">{s.row.symbol}</CardTitle>
+                      <Show when={s.row.name && s.row.name !== s.row.symbol}>
+                        <p class="text-sm text-muted-foreground">{s.row.name}</p>
+                      </Show>
+                    </div>
                     <VerdictBadge verdict={s.verdict} />
                   </CardHeader>
                   <CardContent class="space-y-3">

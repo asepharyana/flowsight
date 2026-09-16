@@ -45,10 +45,15 @@ func (s *Server) Screen(w http.ResponseWriter, r *http.Request) {
 	}
 	// Base universe: live screener when keyed, else stored watchlist.
 	var universe []string
+	names := map[string]string{}
 	if s.Cfg.HasSectorsKey() && (req.Where != "" || req.Q != "") {
 		if rows, err := s.Sectors.Screen(r.Context(), req.Where, req.Q, limit*2, 0); err == nil {
 			for _, row := range rows {
-				universe = append(universe, strings.ToUpper(strings.TrimSuffix(row.Symbol, ".JK")))
+				tk := strings.ToUpper(strings.TrimSuffix(row.Symbol, ".JK"))
+				universe = append(universe, tk)
+				if row.CompanyName != "" {
+					names[tk] = row.CompanyName
+				}
 			}
 		}
 	}
@@ -61,10 +66,18 @@ func (s *Server) Screen(w http.ResponseWriter, r *http.Request) {
 				universe = s.Cfg.Watchlist
 			}
 		}
+		// Fall back to stored company names when offline (universe table).
+		storedNames, _ := s.DB.CompanyNames(universe)
+		for tk, nm := range storedNames {
+			names[tk] = nm
+		}
 	}
 	var rows []ScreenRow
 	for _, tk := range universe {
 		row := s.scoreTicker(tk)
+		if nm := names[tk]; nm != "" {
+			row.Name = nm
+		}
 		if req.Institutional != nil {
 			inst := req.Institutional
 			if b, _ := row.Breakdown["broker_score"].(float64); b < inst.BrokerScoreMin {

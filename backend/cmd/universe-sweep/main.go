@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -54,9 +55,22 @@ func main() {
 	}
 	raw, _ := json.Marshal(all)
 	_ = db.SaveSnapshot("IDX", date, "close", string(raw))
+	// Best-effort company-name enrichment (one screener call) so the screener
+	// search can display "PT Bank Central Asia Tbk" instead of only "BBCA".
+	names := map[string]string{}
+	if rows, err := c.Screen(ctx, "", "", 1000, 0); err == nil {
+		for _, row := range rows {
+			if row.CompanyName != "" {
+				names[strings.ToUpper(strings.TrimSuffix(row.Symbol, ".JK"))] = row.CompanyName
+			}
+		}
+	} else {
+		log.Printf("name enrichment skipped: %v", err)
+	}
 	uni := make([]store.UniverseRow, 0, len(all))
 	for _, r := range all {
-		uni = append(uni, store.UniverseRow{Symbol: r.Symbol, Close: r.Close, Date: r.Date})
+		tk := strings.ToUpper(strings.TrimSuffix(r.Symbol, ".JK"))
+		uni = append(uni, store.UniverseRow{Symbol: tk, Close: r.Close, Date: r.Date, CompanyName: names[tk]})
 	}
 	if err := db.SaveUniverse(uni); err != nil {
 		log.Fatal(err)
