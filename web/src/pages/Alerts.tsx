@@ -50,6 +50,11 @@ function AlertsInner() {
       refetchDests();
     } catch (e) { setDerr(String(e)); }
   }
+  const fmtDate = (s: unknown) => {
+    const t = String(s || "");
+    const d = new Date(t);
+    return Number.isNaN(d.getTime()) ? t : d.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
   async function toggleDest(id: number, enabled: boolean) { try { await api.updateDestination(id, { enabled: !enabled }); refetchDests(); } catch (e) { setDerr(String(e)); } }
   async function delDest(id: number) { try { await api.deleteDestination(id); refetchDests(); } catch (e) { setDerr(String(e)); } }
   return (
@@ -111,7 +116,11 @@ function AlertsInner() {
           <CardHeader><CardTitle>Notifikasi terpasang</CardTitle></CardHeader>
           <CardContent>
             <Show when={(alerts()?.alerts || []).length} fallback={<EmptyState icon="🔔" title="Belum ada" hint="Pilih template di atas, sekali klik." />}>
-              <ul class="space-y-1.5 text-sm"><For each={alerts()?.alerts || []}>{(a) => <li class="flex items-center gap-2">{a.name} <span class="text-muted-foreground">terakhir: {a.last_fired || "belum pernah"}</span><span class="flex-1" /><Button variant="destructive" size="sm" onClick={() => del(a.id)}>Hapus</Button></li>}</For></ul>
+              <ul class="space-y-1.5 text-sm"><For each={alerts()?.alerts || []}>{(a) => <li class="flex flex-wrap items-center gap-2">
+                {a.name}
+                <span class="text-muted-foreground">terakhir: {a.last_fired ? fmtDate(a.last_fired) : "belum pernah"}</span>
+                <span class="flex-1" /><Button variant="destructive" size="sm" onClick={() => del(a.id)}>Hapus</Button>
+              </li>}</For></ul>
             </Show>
           </CardContent>
         </Card>
@@ -122,7 +131,7 @@ function AlertsInner() {
           </CardHeader>
           <CardContent>
             <Show when={(events() || []).length} fallback={<p class="text-sm text-muted-foreground">Belum ada kejadian.</p>}>
-              <ul class="space-y-1.5 text-sm"><For each={events() || []}>{(e) => <li><Badge variant="secondary">{String(e.ticker)}</Badge> {String(e.message)}</li>}</For></ul>
+              <ul class="space-y-1.5 text-sm"><For each={events() || []}>{(e) => <li class="flex items-start gap-2"><Badge variant="secondary">{String(e.ticker)}</Badge><span class="min-w-0 flex-1">{String(e.message)}</span><span class="shrink-0 text-xs text-muted-foreground">{fmtDate(e.date)}</span></li>}</For></ul>
             </Show>
           </CardContent>
         </Card>

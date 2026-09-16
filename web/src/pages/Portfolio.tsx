@@ -31,9 +31,22 @@ function PortfolioInner() {
     if (top.weight > 0.4) return `${top.ticker} porsinya ${(top.weight * 100).toFixed(0)}% — kebanyakan telur di satu keranjang. Pertimbangkan tambah saham beda sektor.`;
     return "Sebarannya sudah lumayan — tidak numpuk di satu tempat. Pertahankan. 👍";
   };
+  const primaryColor = () => {
+    const c = getComputedStyle(document.documentElement).getPropertyValue("--primary");
+    const [h, s, l] = c.trim().split(/[\s,]+/).map(Number);
+    return Number.isFinite(h) && Number.isFinite(s) && Number.isFinite(l) ? `hsl(${h} ${s}% ${l}%)` : "#3b82f6";
+  };
   const chartData = () => ({
     labels: conc().map((c) => c.ticker),
-    datasets: [{ label: "Porsi %", data: conc().map((c) => +(c.weight * 100).toFixed(1)) }],
+    datasets: [{
+      label: "Porsi %",
+      data: conc().map((c) => +(c.weight * 100).toFixed(1)),
+      backgroundColor: conc().map((_, i) => {
+        const alphas = ["88", "66", "44", "33", "22"];
+        return `${primaryColor()}${alphas[i % alphas.length]}`;
+      }),
+      borderRadius: 4,
+    }],
   });
   return (
     <div class="space-y-4">

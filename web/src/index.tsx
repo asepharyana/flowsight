@@ -27,17 +27,24 @@ function Nav(props: { loggedIn: boolean }) {
   const loc = useLocation();
   // Belum login: hanya Dashboard yg terlihat (fitur lain di-hide).
   const items = () => props.loggedIn ? NAV_ALL : NAV_ALL.slice(0, 1);
+  const isActive = (href: string) => loc.pathname === href || (href !== "/" && loc.pathname.startsWith(href));
   return (
     <nav class="flex w-56 shrink-0 flex-col gap-1 border-r bg-card p-4 max-lg:hidden">
-      <div class="mb-4 px-2 text-xl font-bold tracking-tight">
-        Flow<span class="text-primary">Sight</span>
+      <div class="mb-5 px-2">
+        <a href="/" class="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <span class="grid size-7 place-items-center rounded-lg bg-primary text-sm text-primary-foreground">📈</span>
+          Flow<span class="text-primary">Sight</span>
+        </a>
       </div>
       {items().map((n) => (
         <a
           href={n.href}
-          class={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${loc.pathname === n.href ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
+          class={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${isActive(n.href) ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}
         >
-          <span>{n.icon}</span> {n.label}
+          <span class="text-base leading-none">{n.icon}</span> {n.label}
+          <Show when={isActive(n.href)}>
+            <span class="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary" />
+          </Show>
         </a>
       ))}
     </nav>
@@ -64,18 +71,25 @@ function MobileNav(props: { loggedIn: boolean }) {
 function TickerSearch(props: { loggedIn: boolean }) {
   const nav = useNavigate();
   const [q, setQ] = createSignal("");
-  const go = () => {
-    const t = q().toUpperCase().trim();
+  const go = (t: string) => {
+    const v = t.toUpperCase().trim();
     // Report butuh login: arahkan yg belum login ke /login.
-    if (t) nav(props.loggedIn ? `/report/${t}` : "/login");
+    if (v) nav(props.loggedIn ? `/report/${v}` : "/login");
   };
   return (
-    <form class="flex max-w-sm flex-1 items-center gap-2" onSubmit={(e) => { e.preventDefault(); go(); }}>
-      <TextField class="flex-1">
-        <TextFieldInput placeholder="Ticker → report (e.g. BBCA)" value={q()}
-          onInput={(e) => setQ(e.currentTarget.value)} />
-      </TextField>
-      <Button type="submit" variant="secondary">Open</Button>
+    <form class="flex max-w-sm flex-1 items-center gap-2" onSubmit={(e) => { e.preventDefault(); go(q()); }}>
+      <div class="relative flex-1">
+        <TextFieldInput
+          placeholder="Cari kode saham…"
+          value={q()}
+          aria-label="Cari kode saham"
+          onInput={(e) => setQ(e.currentTarget.value)}
+          onKeyDown={(e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); go(q()); } }}
+          class="h-9 pr-8"
+        />
+        <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">🔍</span>
+      </div>
+      <Button type="submit" variant="secondary" class="h-9 px-3">Buka</Button>
     </form>
   );
 }
@@ -99,7 +113,11 @@ function LoginPage() {
     finally { setBusy(false); }
   }
   return (
-    <div class="mx-auto max-w-md py-[8vh]">
+    <div class="mx-auto flex min-h-[70vh] w-full max-w-md flex-col justify-center py-[6vh]">
+      <div class="mb-6 flex items-center justify-center gap-2 text-2xl font-bold tracking-tight">
+        <span class="grid size-9 place-items-center rounded-xl bg-primary text-lg text-primary-foreground">📈</span>
+        Flow<span class="text-primary">Sight</span>
+      </div>
       <Card>
         <CardHeader class="text-center">
           <CardTitle class="text-2xl">Masuk ke FlowSight 👋</CardTitle>

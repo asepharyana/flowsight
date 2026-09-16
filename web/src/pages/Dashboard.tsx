@@ -38,13 +38,20 @@ export default function Dashboard() {
   };
   const sorotan = () => (screen()?.rows || []).map((r) => ({ row: r, ...verdictFor(r) }));
   const closeMap = () => Object.fromEntries((flow()?.closes || []).map((c) => [c.ticker, c]));
+  // Resolve theme-aware primary color (falls back to blue) so the chart
+  // matches light/dark instead of a hardcoded hex.
+  const primaryColor = () => {
+    const c = getComputedStyle(document.documentElement).getPropertyValue("--primary");
+    const [h, s, l] = c.trim().split(/[\s,]+/).map(Number);
+    return Number.isFinite(h) && Number.isFinite(s) && Number.isFinite(l) ? `hsl(${h} ${s}% ${l}%)` : "#3b82f6";
+  };
   const chartData = () => ({
     labels: (foreign()?.dates || []) as string[],
     datasets: [{
       label: `${chartTiker()} — uang asing harian (Rp juta)`,
       data: (foreign()?.nets || []) as number[],
-      borderColor: "#3b82f6",
-      backgroundColor: "rgba(59,130,246,.15)",
+      borderColor: primaryColor(),
+      backgroundColor: "transparent",
       fill: true,
       tension: 0.25,
     }],
@@ -99,10 +106,15 @@ export default function Dashboard() {
                 return (
                   <Card class={s.verdict === "Dilirik" ? "border-emerald-500/50" : s.verdict === "Dilepas" ? "border-red-500/50" : ""}>
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle class="text-xl font-bold">
-                        {s.row.symbol}
-                        <Show when={cx?.close}><span class="ml-2 font-mono text-sm font-normal text-muted-foreground">{fmtHarga(cx.close)}</span></Show>
-                      </CardTitle>
+                      <div>
+                        <CardTitle class="text-xl font-bold">
+                          {s.row.symbol}
+                          <Show when={cx?.close}><span class="ml-2 font-mono text-sm font-normal text-muted-foreground">{fmtHarga(cx.close)}</span></Show>
+                        </CardTitle>
+                        <Show when={s.row.name && s.row.name !== s.row.symbol}>
+                          <p class="text-xs text-muted-foreground">{s.row.name}</p>
+                        </Show>
+                      </div>
                       <VerdictBadge verdict={s.verdict} />
                     </CardHeader>
                     <CardContent class="space-y-3">

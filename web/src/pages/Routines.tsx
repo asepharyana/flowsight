@@ -30,6 +30,13 @@ function RoutinesInner() {
     catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
   }
+  const fmtTime = (s: unknown) => {
+    const t = String(s || "");
+    if (!t) return "—";
+    // ISO timestamp → "16 Sep 07:30" (local time).
+    const d = new Date(t);
+    return Number.isNaN(d.getTime()) ? t : d.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
   async function toggle(id: number, enabled: boolean) {
     try { await api.updateRoutine(id, { enabled: !enabled }); refetch(); } catch (e) { setErr(String(e)); }
   }
@@ -93,7 +100,17 @@ function RoutinesInner() {
             <Button variant="ghost" size="sm" onClick={() => refetchRuns()}>Refresh</Button>
           </CardHeader>
           <CardContent>
-            <ul class="space-y-1 text-sm text-muted-foreground"><For each={runs() || []}>{(r) => <li>{String(r.started_at)} — {String(r.status)}</li>}</For></ul>
+            <ul class="space-y-1 text-sm text-muted-foreground">
+              <For each={runs() || []}>{(r) => (
+                <li class="flex items-center justify-between gap-2">
+                  <span class="flex items-center gap-2">
+                    <Badge variant={r.status === "ok" ? "success" : r.status === "error" ? "error" : "secondary"} class="capitalize">{String(r.status)}</Badge>
+                    <span>{fmtTime(r.started_at)}</span>
+                  </span>
+                  <span class="font-mono text-xs">{r.credits_used ? `${String(r.credits_used)} kredit` : `#${String(r.routine_id)}`}</span>
+                </li>
+              )}</For>
+            </ul>
           </CardContent>
         </Card>
       </div>
