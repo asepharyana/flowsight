@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
+import { TextField, TextFieldInput } from "../components/ui/text-field";
 import { useNavigate } from "@solidjs/router";
 
 // Preset awam -> body /api/screen. PRESET_SEMUA = default auto-jalan.
@@ -24,10 +25,22 @@ function ScreenerInner() {
   const [busy, setBusy] = createSignal(false);
   const [err, setErr] = createSignal("");
   const [aktif, setAktif] = createSignal("");
+  const [q, setQ] = createSignal("");
+  const [showCustom, setShowCustom] = createSignal(false);
   async function runPreset(p: (typeof PRESETS)[number]) {
-    setErr(""); setBusy(true); setAktif(p.label);
+    setErr(""); setBusy(true); setAktif(p.label); setShowCustom(false);
     try {
       const r = await api.screen(p.body);
+      setRows(r.rows); setRan(true);
+    } catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+  async function runCustom() {
+    const query = q().trim();
+    if (!query) return;
+    setErr(""); setBusy(true); setAktif("custom");
+    try {
+      const r = await api.screen({ q: query, limit: 20 });
       setRows(r.rows); setRan(true);
     } catch (e) { setErr(String(e)); }
     finally { setBusy(false); }
@@ -48,6 +61,13 @@ function ScreenerInner() {
             <CardContent><Button size="sm" onClick={() => runPreset(p)} disabled={busy()}>{busy() && aktif() === p.label ? "Menyaring…" : "Tampilkan"}</Button></CardContent>
           </Card>
         )}</For>
+        <Card class={showCustom() ? "border-primary" : ""}>
+          <CardHeader class="pb-2"><CardTitle class="text-base">🔎 Cari nama / sektor sendiri</CardTitle><CardDescription>Ketik nama perusahaan atau sektor (mis. "bank", "energi").</CardDescription></CardHeader>
+          <CardContent class="flex gap-2">
+            <TextField class="flex-1"><TextFieldInput placeholder="mis. bank, bca, energi…" value={q()} onInput={(e) => { setQ(e.currentTarget.value); setShowCustom(true); }} onKeyDown={(e: KeyboardEvent) => { if (e.key === "Enter") runCustom(); }} /></TextField>
+            <Button size="sm" onClick={runCustom} disabled={busy() || !q().trim()}>{busy() && aktif() === "custom" ? "Menyaring…" : "Cari"}</Button>
+          </CardContent>
+        </Card>
       </div>
       <Show when={err()}><p class="text-sm text-destructive">{err()}</p></Show>
       <Show when={busy()}><div class="space-y-2"><Skeleton class="h-24 w-full" /><Skeleton class="h-24 w-full" /></div></Show>
