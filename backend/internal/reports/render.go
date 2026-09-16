@@ -54,25 +54,31 @@ func (r Report) ToHTML() string {
 }
 
 // ToPDF renders the report server-side (pure Go, no system deps).
+// Font: DejaVuSans (Unicode) instead of core Helvetica so Indonesian text
+// (Em-dash, quotes, Rp, accents) renders correctly — latin1() was turning
+// every non-Latin rune into '?'.
 func (r Report) ToPDF() ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetFontLocation("/usr/share/fonts/truetype/dejavu/")
+	pdf.AddUTF8Font("DejaVu", "", "DejaVuSans.ttf")
+	pdf.AddUTF8Font("DejaVu", "B", "DejaVuSans-Bold.ttf")
 	pdf.AddPage()
-	pdf.SetFont("Helvetica", "B", 16)
+	pdf.SetFont("DejaVu", "B", 14)
 	pdf.Cell(0, 10, r.Ticker+" — FlowSight Report")
 	pdf.Ln(12)
-	pdf.SetFont("Helvetica", "", 10)
+	pdf.SetFont("DejaVu", "", 10)
 	pdf.Cell(0, 6, "Generated "+r.GeneratedAt)
 	pdf.Ln(8)
 	for _, s := range r.Sections {
-		pdf.SetFont("Helvetica", "B", 12)
+		pdf.SetFont("DejaVu", "B", 12)
 		pdf.Cell(0, 8, s.Name)
 		pdf.Ln(8)
-		pdf.SetFont("Helvetica", "", 10)
-		pdf.MultiCell(0, 5, latin1(s.Body), "", "", false)
+		pdf.SetFont("DejaVu", "", 10)
+		pdf.MultiCell(0, 5, s.Body, "", "", false)
 		if len(s.Citations) > 0 {
-			pdf.SetFont("Helvetica", "I", 8)
+			pdf.SetFont("DejaVu", "", 8)
 			for _, c := range s.Citations {
-				pdf.MultiCell(0, 4, latin1(c.Endpoint+" "+c.Ticker+" @ "+c.SnapshotAt), "", "", false)
+				pdf.MultiCell(0, 4, c.Endpoint+" "+c.Ticker+" @ "+c.SnapshotAt, "", "", false)
 			}
 		}
 		pdf.Ln(4)
@@ -82,14 +88,4 @@ func (r Report) ToPDF() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-// latin1 drops non-latin runes gofpdf core fonts cannot render.
-func latin1(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r > 255 {
-			return '?'
-		}
-		return r
-	}, s)
 }
