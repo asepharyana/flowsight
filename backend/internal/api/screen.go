@@ -46,7 +46,19 @@ func (s *Server) Screen(w http.ResponseWriter, r *http.Request) {
 	// Base universe: live screener when keyed, else stored watchlist.
 	var universe []string
 	names := map[string]string{}
-	if s.Cfg.HasSectorsKey() && (req.Where != "" || req.Q != "") {
+	// Free-text q → local universe search (ticker + company_name, offline).
+	// The Sectors companies/ endpoint is not on this subscription, so remote
+	// screening is skipped entirely to avoid a silent full-universe fallback.
+	if req.Q != "" {
+		if hits, err := s.DB.SearchTickers(req.Q, limit*2); err == nil {
+			for _, h := range hits {
+				universe = append(universe, h.Symbol)
+				if h.CompanyName != "" {
+					names[h.Symbol] = h.CompanyName
+				}
+			}
+		}
+	} else if s.Cfg.HasSectorsKey() && req.Where != "" {
 		if rows, err := s.Sectors.Screen(r.Context(), req.Where, req.Q, limit*2, 0); err == nil {
 			for _, row := range rows {
 				tk := strings.ToUpper(strings.TrimSuffix(row.Symbol, ".JK"))

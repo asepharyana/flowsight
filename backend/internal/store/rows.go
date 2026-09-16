@@ -682,6 +682,37 @@ func (db *DB) CompanyNames(tickers []string) (map[string]string, error) {
 	return out, rows.Err()
 }
 
+// TickerHit is one local search result over the universe table.
+type TickerHit struct {
+	Symbol      string
+	CompanyName string
+}
+
+// SearchTickers finds universe tickers matching q in ticker or company_name
+// (case-insensitive), most-traded first. Works offline — no Sectors API call.
+func (db *DB) SearchTickers(q string, limit int) ([]TickerHit, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	like := "%" + strings.ToUpper(strings.TrimSpace(q)) + "%"
+	rows, err := db.Query(`SELECT ticker, company_name FROM universe
+		WHERE ticker LIKE ? OR UPPER(company_name) LIKE ?
+		ORDER BY close DESC LIMIT ?`, like, like, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []TickerHit
+	for rows.Next() {
+		var h TickerHit
+		if err := rows.Scan(&h.Symbol, &h.CompanyName); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
 // AddWatch inserts a ticker (idempotent).
 func (db *DB) AddWatch(userKey, ticker string) error {
 	_, err := db.Exec(`INSERT INTO watchlists(user_key,ticker,added_at) VALUES(?,?,?)

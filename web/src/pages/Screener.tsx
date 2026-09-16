@@ -62,9 +62,9 @@ function ScreenerInner() {
           </Card>
         )}</For>
         <Card class={showCustom() ? "border-primary" : ""}>
-          <CardHeader class="pb-2"><CardTitle class="text-base">🔎 Cari nama / sektor sendiri</CardTitle><CardDescription>Ketik nama perusahaan atau sektor (mis. "bank", "energi").</CardDescription></CardHeader>
+          <CardHeader class="pb-2"><CardTitle class="text-base">🔎 Cari kode saham</CardTitle><CardDescription>Ketik kode saham atau nama (mis. "bca", "tlkm", "bank").</CardDescription></CardHeader>
           <CardContent class="flex gap-2">
-            <TextField class="flex-1"><TextFieldInput placeholder="mis. bank, bca, energi…" value={q()} onInput={(e) => { setQ(e.currentTarget.value); setShowCustom(true); }} onKeyDown={(e: KeyboardEvent) => { if (e.key === "Enter") runCustom(); }} /></TextField>
+            <TextField class="flex-1"><TextFieldInput placeholder="mis. bca, tlkm, bbri…" value={q()} onInput={(e) => { setQ(e.currentTarget.value); setShowCustom(true); }} onKeyDown={(e: KeyboardEvent) => { if (e.key === "Enter") runCustom(); }} /></TextField>
             <Button size="sm" onClick={runCustom} disabled={busy() || !q().trim()}>{busy() && aktif() === "custom" ? "Menyaring…" : "Cari"}</Button>
           </CardContent>
         </Card>

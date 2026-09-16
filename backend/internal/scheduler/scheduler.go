@@ -6,7 +6,6 @@
 package scheduler
 
 import (
-	"strings"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -284,21 +283,10 @@ func (s *Scheduler) universe(ctx context.Context) error {
 	raw, _ := json.Marshal(all)
 	_ = s.DB.SaveSnapshot("IDX", date, "close", string(raw))
 	// Persist the universe ticker list so AllTickers() can return the full
-	// IDX set instead of only tickers that have depth data yet. Company names
-	// ride along (one extra screener call — best effort, skipped on failure)
-	// so the screener search can show "PT Bank Central Asia Tbk" not "BBCA".
-	names := map[string]string{}
-	if rows, err := s.Sectors.Screen(ctx, "", "", 1000, 0); err == nil {
-		for _, row := range rows {
-			if row.CompanyName != "" {
-				names[strings.ToUpper(strings.TrimSuffix(row.Symbol, ".JK"))] = row.CompanyName
-			}
-		}
-	}
+	// IDX set instead of only tickers that have depth data yet.
 	uni := make([]store.UniverseRow, 0, len(all))
 	for _, r := range all {
-		tk := strings.ToUpper(strings.TrimSuffix(r.Symbol, ".JK"))
-		uni = append(uni, store.UniverseRow{Symbol: tk, Close: r.Close, Date: r.Date, CompanyName: names[tk]})
+		uni = append(uni, store.UniverseRow{Symbol: r.Symbol, Close: r.Close, Date: r.Date})
 	}
 	if err := s.DB.SaveUniverse(uni); err != nil {
 		log.Printf("scheduler: universe save: %v", err)
