@@ -107,3 +107,51 @@ func TestDestinationCRUD(t *testing.T) {
 		t.Fatal("double delete must report false")
 	}
 }
+
+// Universe save + local ticker search + company-name lookup.
+func TestUniverseSearch(t *testing.T) {
+	db, err := Open(t.TempDir() + "/univ.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	uni := []UniverseRow{
+		{Symbol: "BBCA.JK", Close: 100, Date: "2026-09-16", CompanyName: "PT Bank Central Asia Tbk"},
+		{Symbol: "TLKM.JK", Close: 90, Date: "2026-09-16"},
+		{Symbol: "BBRI.JK", Close: 80, Date: "2026-09-16", CompanyName: "PT Bank Rakyat Indonesia"},
+	}
+	if err := db.SaveUniverse(uni); err != nil {
+		t.Fatal(err)
+	}
+	// Search by ticker prefix (case-insensitive).
+	hits, err := db.SearchTickers("bca", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 || hits[0].Symbol != "BBCA" {
+		t.Fatalf("bca hits = %+v, want BBCA", hits)
+	}
+	// Search by company name.
+	hits, err = db.SearchTickers("bank", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 2 {
+		t.Fatalf("bank hits = %d, want 2 (BBCA+BBRI by name)", len(hits))
+	}
+	// .JK stripped on save, order by close desc.
+	if hits[0].Symbol != "BBCA" || hits[1].Symbol != "BBRI" {
+		t.Fatalf("bank order = %s,%s, want BBCA,BBRI", hits[0].Symbol, hits[1].Symbol)
+	}
+	// CompanyNames returns only tickers with stored names.
+	names, err := db.CompanyNames([]string{"BBCA", "TLKM", "BBRI"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names["BBCA"] != "PT Bank Central Asia Tbk" || names["BBRI"] != "PT Bank Rakyat Indonesia" {
+		t.Fatalf("names = %+v, want BBCA+BBRI only", names)
+	}
+	if _, ok := names["TLKM"]; ok {
+		t.Fatal("TLKM has no name, must be omitted")
+	}
+}
