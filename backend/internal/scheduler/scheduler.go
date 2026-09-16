@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -295,12 +296,30 @@ func (s *Scheduler) universe(ctx context.Context) error {
 }
 
 // market pulls top-changes (1 class x 2 periods), most-traded, idx-total,
-// brokers/top — the cheap context block of the cycle.
+// brokers/top — the cheap context block of the cycle. The top-changes call
+// also enriches universe company names (MoverRow.Name) at no extra credit —
+// n_stock is free; cost is classes×periods only.
 func (s *Scheduler) market(ctx context.Context) error {
 	if g, l, err := s.Sectors.TopChanges(ctx,
-		[]string{"top_gainers"}, []string{"1d", "7d"}, "", 5); err == nil {
+		[]string{"top_gainers"}, []string{"1d", "7d"}, "", 750); err == nil {
 		if raw, err := json.Marshal(map[string]any{"top_gainers": g, "top_losers": l}); err == nil {
 			_ = s.DB.SaveSnapshot("IDX", time.Now().Format("2006-01-02"), "top-changes", string(raw))
+		}
+		// Capture company names from whatever mover rows came back.
+		names := map[string]string{}
+		collect := func(rows map[string][]sectors.MoverRow) {
+			for _, rs := range rows {
+				for _, r := range rs {
+					if r.Name != "" {
+						names[strings.TrimSuffix(r.Symbol, ".JK")] = r.Name
+					}
+				}
+			}
+		}
+		collect(g)
+		collect(l)
+		if err := s.DB.SetCompanyNames(names); err != nil {
+			log.Printf("scheduler: set company names: %v", err)
 		}
 	} else {
 		return err
