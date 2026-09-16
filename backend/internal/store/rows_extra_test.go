@@ -155,3 +155,47 @@ func TestUniverseSearch(t *testing.T) {
 		t.Fatal("TLKM has no name, must be omitted")
 	}
 }
+
+// SetCompanyNames fills blank names; never overwrites existing ones; skips
+// blanks and ticker-equal names.
+func TestSetCompanyNames(t *testing.T) {
+	db, err := Open(t.TempDir() + "/names.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	uni := []UniverseRow{
+		{Symbol: "BBCA.JK", Close: 100, Date: "2026-09-16", CompanyName: "PT Bank Central Asia Tbk"},
+		{Symbol: "TLKM.JK", Close: 90, Date: "2026-09-16"},
+		{Symbol: "BBRI.JK", Close: 80, Date: "2026-09-16"},
+	}
+	if err := db.SaveUniverse(uni); err != nil {
+		t.Fatal(err)
+	}
+	// Fill TLKM + BBRI; BBCA already has a name (must NOT be clobbered);
+	// "UNVR" would be a new row (INSERT OR IGNORE means it's skipped).
+	err = db.SetCompanyNames(map[string]string{
+		"TLKM": "PT Telkom Indonesia (Persero) Tbk",
+		"BBRI": "PT Bank Rakyat Indonesia (Persero) Tbk",
+		"BBCA": "SHOULD NOT OVERWRITE",
+		"UNVR": "PT Unilever Indonesia Tbk",
+		"EMTK": "PT Elang Mahkota Teknologi Tbk", // no universe row -> no-op
+		"BLAH": "BLAH",                           // ticker-equal -> skip
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := db.CompanyNames([]string{"BBCA", "TLKM", "BBRI", "UNVR"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names["BBCA"] != "PT Bank Central Asia Tbk" {
+		t.Fatalf("BBCA clobbered: %q", names["BBCA"])
+	}
+	if names["TLKM"] != "PT Telkom Indonesia (Persero) Tbk" || names["BBRI"] != "PT Bank Rakyat Indonesia (Persero) Tbk" {
+		t.Fatalf("names = %+v, want TLKM+BBRI filled", names)
+	}
+	if _, ok := names["UNVR"]; ok {
+		t.Fatal("UNVR not in universe must be absent")
+	}
+}

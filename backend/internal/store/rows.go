@@ -682,6 +682,30 @@ func (db *DB) CompanyNames(tickers []string) (map[string]string, error) {
 	return out, rows.Err()
 }
 
+// SetCompanyNames bulk-upserts company_name for tickers (from top-changes
+// snapshots). Only non-empty names are written; existing names win (skip
+// blank overwrite) so a later richer source doesn't clobber a good one.
+func (db *DB) SetCompanyNames(names map[string]string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for t, nm := range names {
+		nm = strings.TrimSpace(nm)
+		if nm == "" || strings.EqualFold(nm, t) {
+			continue
+		}
+		if _, err := tx.Exec(`UPDATE universe SET company_name = ? WHERE ticker = ? AND company_name = ''`, nm, t); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // TickerHit is one local search result over the universe table.
 type TickerHit struct {
 	Symbol      string
